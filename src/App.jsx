@@ -998,11 +998,14 @@ const SAMPLE_STORIES = [
 function PosterCard({ game, onGoAuth }) {
   const [hov, setHov] = useState(false);
   const accent = gameAccent(game.title);
+  const hasCover = game.cover && game.cover.length > 0 && game.cover !== 'null';
   return (
     <div onClick={()=>onGoAuth("signup")} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       title={game.title} style={{ width:88,flexShrink:0,cursor:"pointer" }}>
       <div style={{ width:88,height:118,borderRadius:6,overflow:"hidden",
-        background:game.cover ? `url(${game.cover}) center/cover no-repeat, ${gameBg(game.title)}` : gameBg(game.title),
+        backgroundImage: hasCover ? `url(${game.cover})` : gameBg(game.title),
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         position:"relative",
         outline:hov?`2px solid ${accent}`:"2px solid transparent",
         transition:"outline 0.15s,transform 0.15s",
@@ -1017,8 +1020,11 @@ function PosterCard({ game, onGoAuth }) {
 }
 
 function HeroCoverTile({ game }) {
+  const hasCover = game.cover && game.cover.length > 0 && game.cover !== 'null';
   return (
-    <div style={{ background:game.cover ? `url(${game.cover}) center/cover no-repeat, ${gameBg(game.title)}` : gameBg(game.title),
+    <div style={{ backgroundImage: hasCover ? `url(${game.cover})` : gameBg(game.title),
+      backgroundSize: "cover",
+      backgroundPosition: "center",
       borderRadius:4,overflow:"hidden",width:"100%",height:"100%" }}/>
   );
 }
@@ -1051,37 +1057,48 @@ function LandingPage({ onGoAuth }) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      // 1. Always try RAWG first — real fresh covers
       try {
-        // 1. Always try RAWG first — real fresh covers
-        const [p1, p2] = await Promise.all([getPopular(1), getPopular(2)]);
-        const games = [...p1, ...p2].slice(0, 48);
-        if (!cancelled) setLiveGames(games);
+        const [p1, p2, p3] = await Promise.all([getPopular(1), getPopular(2), getPopular(3)]);
+        const rawgGames = [...p1, ...p2, ...p3].slice(0, 60);
 
-        // 2. Save to cache in background (used when RAWG rate-limits)
-        supabase.from('games_cache').upsert(
-          games.map(g=>({
-            id: g.id, title: g.title, cover_url: g.cover,
-            year: g.year, genre: g.genre,
-            updated_at: new Date().toISOString()
-          })),
-          { onConflict:'id' }
-        ).catch(()=>{});
+        if (rawgGames.length > 0) {
+          if (!cancelled) setLiveGames(rawgGames);
 
-      } catch {
-        // RAWG failed (rate limit / network) — try Supabase cache
-        try {
-          const { data: cached } = await supabase
-            .from('games_cache').select('*').limit(48);
-          if (!cancelled) {
-            setLiveGames(cached?.length > 0
-              ? cached.map(g=>({ id:g.id, title:g.title, cover:g.cover_url, year:g.year, genre:g.genre }))
-              : [] // triggers static gradient fallback
+          // 2. Save to cache in background (used when RAWG rate-limits)
+          try {
+            await supabase.from('games_cache').upsert(
+              rawgGames.map(g=>({
+                id: g.id, title: g.title, cover_url: g.cover,
+                year: g.year, genre: g.genre,
+                updated_at: new Date().toISOString()
+              })),
+              { onConflict:'id' }
             );
+          } catch (cacheErr) {
+            // Cache save failed - non-critical, don't fall through
           }
-        } catch {
-          if (!cancelled) setLiveGames([]); // static fallback
+          return;
         }
+      } catch (e) {
+        // RAWG failed (rate limit / network) — try Supabase cache
       }
+
+      // 3. RAWG failed — try Supabase cache
+      try {
+        const { data: cached } = await supabase
+          .from('games_cache').select('*').limit(48);
+        if (!cancelled && cached?.length > 0) {
+          const mapped = cached.map(g=>({ id:g.id, title:g.title, cover:g.cover_url, year:g.year, genre:g.genre }));
+          setLiveGames(mapped);
+          return;
+        }
+      } catch (e2) {
+        // Cache failed
+      }
+
+      // 4. Both failed — static fallback
+      if (!cancelled) setLiveGames([]);
     }
     load();
     return () => { cancelled = true; };
@@ -1090,10 +1107,17 @@ function LandingPage({ onGoAuth }) {
   // Use live games if loaded, otherwise fall back to static GAMES
   const staticFallback = GAMES.map(g=>({ id:g.id, title:g.title, cover:null, year:g.year, genre:g.genre }));
   const displayGames = liveGames?.length > 0 ? liveGames : staticFallback;
-  const heroGames    = displayGames.slice(0, mobile ? 12 : 24);
-  const popularGames = displayGames.slice(0, 12);
-  const topGames     = displayGames.slice(12, 24);
-  const newGames     = [...displayGames].sort((a,b)=>(b.year||0)-(a.year||0)).slice(0, 12);
+
+  // Non-overlapping game slices for each section
+  const heroEndIndex  = mobile ? 12 : 24;
+  const heroGames     = displayGames.slice(0, heroEndIndex);
+  const popularGames  = displayGames.slice(heroEndIndex, heroEndIndex + 12);
+  const topGames      = displayGames.slice(heroEndIndex + 12, heroEndIndex + 24);
+  // New section picks from remaining games, sorted by year
+  const remainingGames = displayGames.slice(heroEndIndex + 24);
+  const newGames      = remainingGames.length > 0
+    ? [...remainingGames].sort((a,b)=>(b.year||0)-(a.year||0)).slice(0, 12)
+    : [...displayGames].sort((a,b)=>(b.year||0)-(a.year||0)).slice(0, 12);
 
   return (
     <div style={{ background:"#0A0B0F",fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",
