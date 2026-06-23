@@ -23,9 +23,12 @@ export function fmtGame(g) {
   };
 }
 
-export const getPopular = (page = 1, genreSlug = '') =>
-  req(`/games?page=${page}&page_size=24&ordering=-added&metacritic=70,100${genreSlug ? `&genres=${genreSlug}` : ''}`)
+export const getPopular = (page = 1, genreSlug = '') => {
+  const today = new Date().toISOString().slice(0, 10);
+  const from  = new Date(Date.now() - 3 * 365.25 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return req(`/games?page=${page}&page_size=24&ordering=-added&dates=${from},${today}${genreSlug ? `&genres=${genreSlug}` : ''}`)
     .then(d => (d.results ?? []).map(g => fmtGame({...g, genres: g.genres || [], platforms: g.platforms || []})));
+};
 
 export const searchGames = (q, page = 1) =>
   req(`/games?search=${encodeURIComponent(q)}&page=${page}&page_size=24&search_precise=true`)
