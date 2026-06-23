@@ -983,8 +983,6 @@ function LandingPage({ onGoAuth }) {
         <div style={{ display:"flex",gap:mobile?8:10,alignItems:"center" }}>
           <button onClick={()=>onGoAuth("signin")} className="lnav-link"
             style={{ fontSize:mobile?12:13 }}>Sign in</button>
-          {!mobile && <span style={{ color:"#2E3450",fontSize:13 }}>·</span>}
-          {!mobile && <button onClick={()=>onGoAuth("signup")} className="lnav-link">Create account</button>}
           <button onClick={()=>onGoAuth("signup")}
             style={{ padding:mobile?"6px 12px":"7px 16px",borderRadius:7,
               background:"#F0A500",border:"none",color:"#000",fontSize:mobile?12:13,
