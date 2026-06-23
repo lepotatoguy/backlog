@@ -1,6 +1,16 @@
 import { supabase } from "./supabase.js"
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
+  useEffect(() => {
+    const fn = () => setW(window.innerWidth);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return w;
+}
+
 const GAMES = [
   { id: 1, title: "Elden Ring", developer: "FromSoftware", year: 2022, genre: "RPG", description: "An open-world action RPG built with George R.R. Martin. Vast, interconnected, and relentlessly demanding — the Souls formula perfected and expanded." },
   { id: 2, title: "Baldur's Gate 3", developer: "Larian Studios", year: 2023, genre: "RPG", description: "Every choice carries weight. Gather your party and navigate a richly simulated world of consequence. The new gold standard for CRPGs." },
@@ -124,6 +134,8 @@ function Modal({ game, ug, onClose, onSave }) {
   const [review, setReview] = useState(ug?.review??"");
   const [saved, setSaved] = useState(false);
   const accent = gameAccent(game.title);
+  const w = useWindowWidth();
+  const mobile = w < 640;
 
   useEffect(() => {
     const fn = e => e.key==="Escape" && onClose();
@@ -140,56 +152,90 @@ function Modal({ game, ug, onClose, onSave }) {
   return (
     <div onClick={onClose} style={{ position:"fixed",inset:0,zIndex:200,
       background:"#000000C8",backdropFilter:"blur(6px)",
-      display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
+      display:"flex",alignItems:mobile?"flex-end":"center",
+      justifyContent:"center",padding:mobile?0:16 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:"#12141C",
-        border:"1px solid #1A1E2E",borderRadius:16,width:"100%",maxWidth:720,
-        maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column" }}>
-        <div style={{ display:"flex",flexShrink:0 }}>
-          <div style={{ width:160,minWidth:160,flexShrink:0,background:gameBg(game.title),position:"relative" }}>
-            <div style={{ position:"absolute",inset:0,
-              background:"linear-gradient(to right,transparent 60%,#12141C 100%)" }}/>
-          </div>
-          <div style={{ flex:1,padding:"24px 24px 20px 20px",minWidth:0 }}>
-            <div style={{ display:"flex",justifyContent:"space-between",gap:8 }}>
-              <div style={{ minWidth:0 }}>
-                <div style={{ fontSize:22,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:4 }}>{game.title}</div>
-                <div style={{ fontSize:12,color:"#555D7A",marginBottom:12 }}>
+        border:"1px solid #1A1E2E",
+        borderRadius:mobile?"16px 16px 0 0":16,
+        width:"100%",maxWidth:mobile?"100%":720,
+        maxHeight:mobile?"92vh":"92vh",
+        overflow:"hidden",display:"flex",flexDirection:"column" }}>
+
+        {/* Cover + info — stacked on mobile, side by side on desktop */}
+        {mobile ? (
+          <div style={{ flexShrink:0 }}>
+            {/* Mobile: horizontal mini-cover + title */}
+            <div style={{ display:"flex",gap:14,padding:"20px 20px 16px",alignItems:"center" }}>
+              <div style={{ width:56,height:75,borderRadius:8,flexShrink:0,
+                background:gameBg(game.title) }}/>
+              <div style={{ flex:1,minWidth:0 }}>
+                <div style={{ fontSize:17,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:3 }}>{game.title}</div>
+                <div style={{ fontSize:11,color:"#555D7A",marginBottom:10 }}>
                   {game.developer} · {game.year} · {game.genre}</div>
+                <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+                  {["Want to Play","Playing","Played"].map(s => (
+                    <button key={s} onClick={() => setStatus(status===s?null:s)} style={{
+                      padding:"5px 10px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",
+                      border:`1px solid ${status===s?accent:"#22263A"}`,
+                      background:status===s?accent+"22":"#181B25",
+                      color:status===s?accent:"#555D7A" }}>{s}</button>
+                  ))}
+                </div>
               </div>
               <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",
-                color:"#555D7A",fontSize:24,lineHeight:1,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
-            </div>
-            <div style={{ fontSize:13,color:"#7B8099",lineHeight:1.65,marginBottom:16 }}>{game.description}</div>
-            <div style={{ display:"flex",gap:7,flexWrap:"wrap" }}>
-              {["Want to Play","Playing","Played"].map(s => (
-                <button key={s} onClick={() => setStatus(status===s?null:s)} style={{
-                  padding:"6px 13px",borderRadius:6,fontSize:12,fontWeight:600,
-                  cursor:"pointer",transition:"all 0.14s",
-                  border:`1px solid ${status===s?accent:"#22263A"}`,
-                  background:status===s?accent+"22":"#181B25",
-                  color:status===s?accent:"#555D7A",letterSpacing:"0.03em" }}>{s}</button>
-              ))}
+                color:"#555D7A",fontSize:24,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ display:"flex",flexShrink:0 }}>
+            <div style={{ width:160,minWidth:160,flexShrink:0,background:gameBg(game.title),position:"relative" }}>
+              <div style={{ position:"absolute",inset:0,
+                background:"linear-gradient(to right,transparent 60%,#12141C 100%)" }}/>
+            </div>
+            <div style={{ flex:1,padding:"24px 24px 20px 20px",minWidth:0 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",gap:8 }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:22,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:4 }}>{game.title}</div>
+                  <div style={{ fontSize:12,color:"#555D7A",marginBottom:12 }}>
+                    {game.developer} · {game.year} · {game.genre}</div>
+                </div>
+                <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",
+                  color:"#555D7A",fontSize:24,lineHeight:1,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
+              </div>
+              <div style={{ fontSize:13,color:"#7B8099",lineHeight:1.65,marginBottom:16 }}>{game.description}</div>
+              <div style={{ display:"flex",gap:7,flexWrap:"wrap" }}>
+                {["Want to Play","Playing","Played"].map(s => (
+                  <button key={s} onClick={() => setStatus(status===s?null:s)} style={{
+                    padding:"6px 13px",borderRadius:6,fontSize:12,fontWeight:600,
+                    cursor:"pointer",transition:"all 0.14s",
+                    border:`1px solid ${status===s?accent:"#22263A"}`,
+                    background:status===s?accent+"22":"#181B25",
+                    color:status===s?accent:"#555D7A",letterSpacing:"0.03em" }}>{s}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ height:1,background:"#1A1E2E",flexShrink:0 }}/>
-        <div style={{ overflowY:"auto",padding:"20px 24px 28px",flex:1 }}>
+        <div style={{ overflowY:"auto",padding:mobile?"16px 20px 28px":"20px 24px 28px",flex:1 }}>
           <div style={{ marginBottom:20 }}>
             <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.12em",
               color:"#3A4060",textTransform:"uppercase",marginBottom:9 }}>Your rating</div>
-            <Stars value={rating} onChange={setRating} size={30}/>
+            <Stars value={rating} onChange={setRating} size={mobile?26:30}/>
           </div>
           <div style={{ marginBottom:20 }}>
             <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.12em",
               color:"#3A4060",textTransform:"uppercase",marginBottom:9 }}>Your review</div>
             <textarea value={review} onChange={e=>setReview(e.target.value)}
               placeholder="What did you think?"
-              style={{ width:"100%",minHeight:90,background:"#0A0B0F",
+              style={{ width:"100%",minHeight:80,background:"#0A0B0F",
                 border:"1px solid #1A1E2E",borderRadius:8,padding:"10px 13px",
                 color:"#C8CAD8",fontSize:13,lineHeight:1.6,resize:"vertical",
                 outline:"none",fontFamily:"inherit",boxSizing:"border-box" }}/>
           </div>
-          <button onClick={handleSave} style={{ padding:"10px 22px",borderRadius:8,
+          <button onClick={handleSave} style={{ width:mobile?"100%":"auto",
+            padding:"11px 22px",borderRadius:8,
             background:saved?"#14532D":accent,color:saved?"#4ADE80":"#000",
             border:"none",fontWeight:800,fontSize:13,cursor:"pointer",
             transition:"all 0.18s",letterSpacing:"0.03em" }}>
@@ -686,6 +732,8 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(profile.name);
   const [draftBio, setDraftBio] = useState(profile.bio);
+  const w = useWindowWidth();
+  const mobile = w < 640;
 
   const subTabs = [
     ["profile","Profile"],["activity","Activity"],
@@ -711,52 +759,60 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
 
   return (
     <div>
-      {/* Profile header */}
-      <div style={{ background:"#0D0F17",borderBottom:"1px solid #1A1E2E",padding:"28px 20px 0" }}>
+      <div style={{ background:"#0D0F17",borderBottom:"1px solid #1A1E2E",padding:mobile?"20px 16px 0":"28px 20px 0" }}>
         <div style={{ maxWidth:760,margin:"0 auto" }}>
-          <div style={{ display:"flex",alignItems:"flex-start",gap:20,marginBottom:20 }}>
-            {/* Avatar */}
-            <div style={{ width:72,height:72,borderRadius:"50%",flexShrink:0,
-              background:"linear-gradient(135deg,#F0A500,#7C3AED)",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:26,fontWeight:900,color:"#fff" }}>
-              {profile.name[0].toUpperCase()}
-            </div>
-            <div style={{ flex:1,minWidth:0 }}>
-              {editing ? (
-                <div>
-                  <input value={draftName} onChange={e=>setDraftName(e.target.value)}
-                    style={{ background:"#181B25",border:"1px solid #22263A",borderRadius:6,
-                      color:"#EAEBF2",fontSize:18,fontWeight:800,padding:"4px 10px",
-                      outline:"none",width:"100%",marginBottom:8,boxSizing:"border-box" }}/>
-                  <input value={draftBio} onChange={e=>setDraftBio(e.target.value)}
-                    placeholder="Short bio..."
-                    style={{ background:"#181B25",border:"1px solid #22263A",borderRadius:6,
-                      color:"#EAEBF2",fontSize:13,padding:"4px 10px",
-                      outline:"none",width:"100%",boxSizing:"border-box" }}/>
-                  <div style={{ display:"flex",gap:8,marginTop:8 }}>
-                    <button onClick={saveProfile} style={{ padding:"5px 14px",borderRadius:6,
-                      background:"#F0A500",color:"#000",border:"none",
-                      fontWeight:700,fontSize:12,cursor:"pointer" }}>Save</button>
-                    <button onClick={()=>setEditing(false)} style={{ padding:"5px 14px",borderRadius:6,
-                      background:"#181B25",color:"#7B8099",border:"1px solid #22263A",
-                      fontSize:12,cursor:"pointer" }}>Cancel</button>
+
+          {/* Avatar + name + stats */}
+          <div style={{ display:"flex",flexDirection:mobile?"column":"row",
+            alignItems:mobile?"flex-start":"flex-start",gap:16,marginBottom:20 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:14,flex:1,minWidth:0 }}>
+              <div style={{ width:mobile?56:72,height:mobile?56:72,borderRadius:"50%",flexShrink:0,
+                background:"linear-gradient(135deg,#F0A500,#7C3AED)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:mobile?20:26,fontWeight:900,color:"#fff" }}>
+                {profile.name[0].toUpperCase()}
+              </div>
+              <div style={{ flex:1,minWidth:0 }}>
+                {editing ? (
+                  <div>
+                    <input value={draftName} onChange={e=>setDraftName(e.target.value)}
+                      style={{ background:"#181B25",border:"1px solid #22263A",borderRadius:6,
+                        color:"#EAEBF2",fontSize:16,fontWeight:800,padding:"4px 10px",
+                        outline:"none",width:"100%",marginBottom:8,boxSizing:"border-box" }}/>
+                    <input value={draftBio} onChange={e=>setDraftBio(e.target.value)}
+                      placeholder="Short bio..."
+                      style={{ background:"#181B25",border:"1px solid #22263A",borderRadius:6,
+                        color:"#EAEBF2",fontSize:13,padding:"4px 10px",
+                        outline:"none",width:"100%",boxSizing:"border-box" }}/>
+                    <div style={{ display:"flex",gap:8,marginTop:8 }}>
+                      <button onClick={saveProfile} style={{ padding:"5px 14px",borderRadius:6,
+                        background:"#F0A500",color:"#000",border:"none",
+                        fontWeight:700,fontSize:12,cursor:"pointer" }}>Save</button>
+                      <button onClick={()=>setEditing(false)} style={{ padding:"5px 14px",borderRadius:6,
+                        background:"#181B25",color:"#7B8099",border:"1px solid #22263A",
+                        fontSize:12,cursor:"pointer" }}>Cancel</button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize:20,fontWeight:800,color:"#EAEBF2",marginBottom:4 }}>{profile.name}</div>
-                  {profile.bio && <div style={{ fontSize:13,color:"#7B8099",marginBottom:8 }}>{profile.bio}</div>}
-                  <button onClick={()=>setEditing(true)} style={{ fontSize:11,fontWeight:700,
-                    padding:"4px 12px",borderRadius:5,background:"none",
-                    border:"1px solid #2E3450",color:"#555D7A",cursor:"pointer",letterSpacing:"0.05em" }}>
-                    EDIT PROFILE
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div>
+                    <div style={{ fontSize:mobile?16:20,fontWeight:800,color:"#EAEBF2",marginBottom:2 }}>{profile.name}</div>
+                    {profile.bio && <div style={{ fontSize:12,color:"#7B8099",marginBottom:6 }}>{profile.bio}</div>}
+                    <button onClick={()=>setEditing(true)} style={{ fontSize:10,fontWeight:700,
+                      padding:"3px 10px",borderRadius:5,background:"none",
+                      border:"1px solid #2E3450",color:"#555D7A",cursor:"pointer",letterSpacing:"0.05em" }}>
+                      EDIT PROFILE
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            {/* Stats */}
-            <div style={{ display:"flex",gap:24,flexShrink:0 }}>
+
+            {/* Stats — 2x2 on mobile, row on desktop */}
+            <div style={{ display:"grid",
+              gridTemplateColumns:mobile?"repeat(4,1fr)":"repeat(4,auto)",
+              gap:mobile?"8px 16px":"0 24px",
+              width:mobile?"100%":"auto",flexShrink:0,
+              marginTop:mobile?4:0 }}>
               {[
                 { label:"GAMES",    value:totals.played },
                 { label:"THIS YEAR",value:totals.thisYear },
@@ -764,18 +820,18 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
                 { label:"REVIEWS",  value:totals.reviews },
               ].map(s=>(
                 <div key={s.label} style={{ textAlign:"center" }}>
-                  <div style={{ fontSize:22,fontWeight:900,color:"#EAEBF2",lineHeight:1 }}>{s.value}</div>
-                  <div style={{ fontSize:9,fontWeight:700,letterSpacing:"0.1em",color:"#3A4060",marginTop:3 }}>{s.label}</div>
+                  <div style={{ fontSize:mobile?18:22,fontWeight:900,color:"#EAEBF2",lineHeight:1 }}>{s.value}</div>
+                  <div style={{ fontSize:8,fontWeight:700,letterSpacing:"0.08em",color:"#3A4060",marginTop:3 }}>{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Sub-nav */}
-          <div style={{ display:"flex",gap:0,overflowX:"auto" }}>
+          {/* Sub-nav — horizontally scrollable */}
+          <div style={{ display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none",marginLeft:-4 }}>
             {subTabs.map(([id,label])=>(
-              <button key={id} onClick={()=>setSubTab(id)} style={{ padding:"10px 14px",
-                background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:500,
+              <button key={id} onClick={()=>setSubTab(id)} style={{ padding:mobile?"8px 12px":"10px 14px",
+                background:"none",border:"none",cursor:"pointer",fontSize:mobile?12:13,fontWeight:500,
                 whiteSpace:"nowrap",
                 color:subTab===id?"#EAEBF2":"#555D7A",
                 borderBottom:subTab===id?"2px solid #EAEBF2":"2px solid transparent",
@@ -785,8 +841,7 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
         </div>
       </div>
 
-      {/* Sub-tab content */}
-      <div style={{ padding:"28px 20px 56px",maxWidth:760,margin:"0 auto" }}>
+      <div style={{ padding:mobile?"20px 16px 80px":"28px 20px 56px",maxWidth:760,margin:"0 auto" }}>
         {subTab==="profile"  && <ProfileOverview games={games} userGames={userGames} onOpen={onOpen} favorites={favorites} setFavorites={setFavorites}/>}
         {subTab==="activity" && <ProfileOverview games={games} userGames={userGames} onOpen={onOpen} favorites={favorites} setFavorites={setFavorites}/>}
         {subTab==="games"    && <ProfileGames games={games} userGames={userGames} onOpen={onOpen}/>}
@@ -880,6 +935,10 @@ function GameStrip({ title, ids, onGoAuth }) {
 }
 
 function LandingPage({ onGoAuth }) {
+  const w = useWindowWidth();
+  const mobile = w < 640;
+  const tablet = w < 1024;
+
   return (
     <div style={{ background:"#0A0B0F",fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",
       color:"#EAEBF2",minHeight:"100vh" }}>
@@ -890,93 +949,91 @@ function LandingPage({ onGoAuth }) {
         ::-webkit-scrollbar-thumb{background:#22263A;border-radius:3px}
         .lnav-link{color:#9CA3AF;font-size:13px;font-weight:500;background:none;border:none;cursor:pointer;padding:0;transition:color 0.12s}
         .lnav-link:hover{color:#EAEBF2}
-        .btn-ghost-l:hover{background:#1A1E2E!important;color:#EAEBF2!important}
-        .feature-icon{font-size:26px;margin-bottom:10px}
         .story-card:hover .story-title{color:#F0A500!important}
         .review-card:hover{border-color:#2E3450!important}
       `}</style>
 
-      {/* ── NAV ───────────────────────────────────────── */}
-      <nav style={{ display:"flex",alignItems:"center",padding:"0 32px",height:52,
+      {/* ── NAV ── */}
+      <nav style={{ display:"flex",alignItems:"center",padding:mobile?"0 16px":"0 32px",height:52,
         borderBottom:"1px solid #12141C",background:"#0A0B0F",
         position:"sticky",top:0,zIndex:50 }}>
-        <div style={{ display:"flex",alignItems:"center",gap:8,marginRight:36 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:8,marginRight:mobile?0:36,flex:mobile?1:0 }}>
           <span style={{ fontSize:20 }}>🎮</span>
           <span style={{ fontWeight:900,fontSize:16,color:"#EAEBF2",letterSpacing:"-0.03em" }}>BACKLOG</span>
         </div>
-        <div style={{ display:"flex",gap:24,flex:1 }}>
-          {["Games","Lists","Members","Journal"].map(l=>(
-            <button key={l} className="lnav-link" onClick={()=>onGoAuth("signup")}>{l}</button>
-          ))}
-        </div>
-        <div style={{ display:"flex",gap:10,alignItems:"center" }}>
-          <button onClick={()=>onGoAuth("signin")} className="lnav-link">Sign in</button>
-          <span style={{ color:"#2E3450",fontSize:13 }}>·</span>
-          <button onClick={()=>onGoAuth("signup")} className="lnav-link">Create account</button>
+        {!mobile && (
+          <div style={{ display:"flex",gap:24,flex:1 }}>
+            {["Games","Lists","Members","Journal"].map(l=>(
+              <button key={l} className="lnav-link" onClick={()=>onGoAuth("signup")}>{l}</button>
+            ))}
+          </div>
+        )}
+        <div style={{ display:"flex",gap:mobile?8:10,alignItems:"center" }}>
+          <button onClick={()=>onGoAuth("signin")} className="lnav-link"
+            style={{ fontSize:mobile?12:13 }}>Sign in</button>
+          {!mobile && <span style={{ color:"#2E3450",fontSize:13 }}>·</span>}
+          {!mobile && <button onClick={()=>onGoAuth("signup")} className="lnav-link">Create account</button>}
           <button onClick={()=>onGoAuth("signup")}
-            style={{ marginLeft:8,padding:"7px 16px",borderRadius:7,
-              background:"#F0A500",border:"none",color:"#000",fontSize:13,
-              fontWeight:800,cursor:"pointer",letterSpacing:"0.01em" }}>
-            Get Started
+            style={{ padding:mobile?"6px 12px":"7px 16px",borderRadius:7,
+              background:"#F0A500",border:"none",color:"#000",fontSize:mobile?12:13,
+              fontWeight:800,cursor:"pointer" }}>
+            {mobile?"Join":"Get Started"}
           </button>
         </div>
       </nav>
 
-      {/* ── HERO ──────────────────────────────────────── */}
-      <div style={{ position:"relative",height:500,overflow:"hidden" }}>
-        {/* Mosaic background */}
+      {/* ── HERO ── */}
+      <div style={{ position:"relative",height:mobile?400:500,overflow:"hidden" }}>
         <div style={{ position:"absolute",inset:0,
           display:"grid",
-          gridTemplateColumns:"repeat(12,1fr)",
+          gridTemplateColumns:`repeat(${mobile?6:12},1fr)`,
           gridTemplateRows:"repeat(2,1fr)",
-          gap:5,padding:5 }}>
-          {HERO_IDS.map((id,i)=>{
+          gap:4,padding:4 }}>
+          {HERO_IDS.slice(0, mobile?12:24).map((id,i)=>{
             const g=GAME_MAP[id];
-            return g?(
-              <div key={i} style={{ background:gameBg(g.title),borderRadius:5,
-                gridColumn: i===0?"span 2":undefined,
-                gridRow: i===0?"span 2":undefined }} />
-            ):null;
+            return g?(<div key={i} style={{ background:gameBg(g.title),borderRadius:4 }}/>):null;
           })}
         </div>
-        {/* Gradient overlays */}
         <div style={{ position:"absolute",inset:0,
-          background:"linear-gradient(to right,#0A0B0F 38%,#0A0B0FCC 58%,#0A0B0F55 75%,transparent 100%)" }}/>
+          background:mobile
+            ?"linear-gradient(to bottom,#0A0B0FBB 0%,#0A0B0F 85%)"
+            :"linear-gradient(to right,#0A0B0F 38%,#0A0B0FCC 58%,#0A0B0F55 75%,transparent 100%)" }}/>
         <div style={{ position:"absolute",inset:0,
           background:"linear-gradient(to top,#0A0B0F 0%,transparent 35%)" }}/>
-        {/* Text */}
-        <div style={{ position:"relative",zIndex:1,padding:"60px 40px",maxWidth:560 }}>
-          <h1 style={{ fontSize:42,fontWeight:900,lineHeight:1.1,
-            color:"#EAEBF2",marginBottom:20,letterSpacing:"-0.03em" }}>
+        <div style={{ position:"relative",zIndex:1,
+          padding:mobile?"40px 20px":"60px 40px",maxWidth:mobile?"100%":560,
+          textAlign:mobile?"center":"left" }}>
+          <h1 style={{ fontSize:mobile?28:42,fontWeight:900,lineHeight:1.1,
+            color:"#EAEBF2",marginBottom:mobile?16:20,letterSpacing:"-0.03em" }}>
             Track games you've played.<br/>
             Save those you want to play.<br/>
             Tell your friends what's good.
           </h1>
           <button onClick={()=>onGoAuth("signup")}
-            style={{ padding:"13px 30px",borderRadius:9,background:"#F0A500",
-              border:"none",color:"#000",fontSize:15,fontWeight:800,
-              cursor:"pointer",letterSpacing:"0.01em",marginBottom:20 }}>
+            style={{ padding:mobile?"12px 24px":"13px 30px",borderRadius:9,background:"#F0A500",
+              border:"none",color:"#000",fontSize:mobile?14:15,fontWeight:800,
+              cursor:"pointer",marginBottom:mobile?12:20,display:"inline-block" }}>
             Get started — It's free!
           </button>
-          <div style={{ fontSize:12,color:"#555D7A" }}>
-            The social network for gamers.
-          </div>
+          <div style={{ fontSize:12,color:"#555D7A" }}>The social network for gamers.</div>
         </div>
       </div>
 
-      {/* ── FEATURE ROW ───────────────────────────────── */}
+      {/* ── FEATURE ROW ── */}
       <div style={{ background:"#0D0F17",borderTop:"1px solid #12141C",
-        borderBottom:"1px solid #12141C",padding:"32px 40px" }}>
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:24,maxWidth:1100,margin:"0 auto" }}>
+        borderBottom:"1px solid #12141C",padding:mobile?"24px 20px":"32px 40px" }}>
+        <div style={{ display:"grid",
+          gridTemplateColumns:mobile?"repeat(2,1fr)":"repeat(4,1fr)",
+          gap:mobile?"20px 16px":24,maxWidth:1100,margin:"0 auto" }}>
           {[
             { icon:"🕹️", title:"Keep track of every game you've ever played", text:"(and some you've still to get to!)" },
-            { icon:"❤️", title:"Show love for your favorite games", text:"and create your own lists to share with friends." },
+            { icon:"❤️", title:"Show love for your favorite games", text:"and create your own lists." },
             { icon:"✍️", title:"Write and share reviews", text:"and follow friends to see what they're playing." },
-            { icon:"📔", title:"Keep a diary of all the games you play", text:"and follow along with your friends in real time." },
+            { icon:"📔", title:"Keep a diary of all the games you play", text:"and follow along in real time." },
           ].map(f=>(
             <div key={f.icon}>
-              <div className="feature-icon">{f.icon}</div>
-              <div style={{ fontSize:13,color:"#EAEBF2",lineHeight:1.55 }}>
+              <div style={{ fontSize:mobile?22:26,marginBottom:8 }}>{f.icon}</div>
+              <div style={{ fontSize:mobile?12:13,color:"#EAEBF2",lineHeight:1.55 }}>
                 <strong>{f.title}</strong> {f.text}
               </div>
             </div>
@@ -984,81 +1041,84 @@ function LandingPage({ onGoAuth }) {
         </div>
       </div>
 
-      {/* ── GAME STRIPS ───────────────────────────────── */}
-      <div style={{ padding:"36px 0 0" }}>
+      {/* ── GAME STRIPS ── */}
+      <div style={{ padding:"28px 0 0" }}>
         <GameStrip title="Popular on Backlog" ids={POPULAR_IDS} onGoAuth={onGoAuth}/>
 
         {/* Top 250 banner */}
-        <div style={{ margin:"0 32px 36px",borderRadius:12,overflow:"hidden",
+        <div style={{ margin:mobile?"0 16px 28px":"0 32px 36px",borderRadius:12,
           background:"linear-gradient(135deg,#1A1025 0%,#0D1A2E 100%)",
-          border:"1px solid #1A1E2E",padding:"28px 32px",
-          display:"flex",alignItems:"center",gap:24 }}>
-          <div style={{ fontSize:48,lineHeight:1 }}>🏆</div>
+          border:"1px solid #1A1E2E",padding:mobile?"18px 20px":"28px 32px",
+          display:"flex",alignItems:"center",gap:mobile?14:24 }}>
+          <div style={{ fontSize:mobile?36:48,lineHeight:1 }}>🏆</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.14em",
-              color:"#F0A500",textTransform:"uppercase",marginBottom:6 }}>Backlog Official</div>
-            <div style={{ fontSize:20,fontWeight:900,color:"#EAEBF2",marginBottom:4 }}>
+            <div style={{ fontSize:9,fontWeight:700,letterSpacing:"0.14em",
+              color:"#F0A500",textTransform:"uppercase",marginBottom:4 }}>Backlog Official</div>
+            <div style={{ fontSize:mobile?15:20,fontWeight:900,color:"#EAEBF2",marginBottom:3 }}>
               Top 250 Games of All Time
             </div>
-            <div style={{ fontSize:13,color:"#555D7A" }}>
-              Compiled and updated by the Backlog community. See which games have the most fans.
-            </div>
+            {!mobile && <div style={{ fontSize:13,color:"#555D7A" }}>
+              Compiled by the Backlog community.
+            </div>}
           </div>
           <button onClick={()=>onGoAuth("signup")}
-            style={{ padding:"10px 22px",borderRadius:8,background:"#F0A500",
-              border:"none",color:"#000",fontWeight:800,fontSize:13,cursor:"pointer",
-              flexShrink:0 }}>View List</button>
+            style={{ padding:mobile?"8px 14px":"10px 22px",borderRadius:8,background:"#F0A500",
+              border:"none",color:"#000",fontWeight:800,fontSize:mobile?12:13,
+              cursor:"pointer",flexShrink:0 }}>View</button>
         </div>
 
-        <GameStrip title="Top Games With the Most Fans on Backlog" ids={TOPFAN_IDS} onGoAuth={onGoAuth}/>
+        <GameStrip title="Top Games With the Most Fans" ids={TOPFAN_IDS} onGoAuth={onGoAuth}/>
         <GameStrip title="New &amp; Recent Releases" ids={NEWREL_IDS} onGoAuth={onGoAuth}/>
       </div>
 
-      {/* ── REVIEWS + SIDEBAR ─────────────────────────── */}
-      <div style={{ borderTop:"1px solid #12141C",padding:"36px 32px 40px",
-        display:"grid",gridTemplateColumns:"1fr 320px",gap:40,maxWidth:1200,margin:"0 auto" }}>
+      {/* ── REVIEWS + SIDEBAR ── */}
+      <div style={{ borderTop:"1px solid #12141C",
+        padding:mobile?"28px 16px 32px":tablet?"28px 24px 32px":"36px 32px 40px",
+        display:"grid",
+        gridTemplateColumns:mobile?"1fr":tablet?"1fr":"1fr 320px",
+        gap:mobile?32:40,maxWidth:1200,margin:"0 auto" }}>
 
-        {/* Reviews */}
         <div>
-          <div style={{ display:"flex",justifyContent:"space-between",marginBottom:20 }}>
+          <div style={{ display:"flex",justifyContent:"space-between",marginBottom:16 }}>
             <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.13em",
               color:"#555D7A",textTransform:"uppercase" }}>Popular Reviews This Week</div>
             <button onClick={()=>onGoAuth("signup")}
               style={{ fontSize:11,fontWeight:700,color:"#3A4060",background:"none",
                 border:"none",cursor:"pointer",letterSpacing:"0.06em" }}>MORE</button>
           </div>
-          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
             {SAMPLE_REVIEWS.map((r,i)=>{
               const game=GAME_MAP[r.gameId];
               if (!game) return null;
               return (
                 <div key={i} className="review-card" onClick={()=>onGoAuth("signup")}
-                  style={{ display:"flex",gap:14,padding:"14px 16px",borderRadius:10,
+                  style={{ display:"flex",gap:12,padding:"12px 14px",borderRadius:10,
                     background:"#0D0F17",border:"1px solid #12141C",
                     cursor:"pointer",transition:"border-color 0.15s" }}>
-                  <div style={{ width:48,height:65,borderRadius:6,flexShrink:0,
+                  <div style={{ width:44,height:58,borderRadius:6,flexShrink:0,
                     background:gameBg(game.title) }}/>
                   <div style={{ flex:1,minWidth:0 }}>
-                    <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
-                      <div style={{ width:22,height:22,borderRadius:"50%",flexShrink:0,
+                    <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap" }}>
+                      <div style={{ width:20,height:20,borderRadius:"50%",flexShrink:0,
                         background:`hsl(${strToHue(r.user)},60%,45%)`,
                         display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:11,fontWeight:800,color:"#fff" }}>
+                        fontSize:10,fontWeight:800,color:"#fff" }}>
                         {r.user[0].toUpperCase()}
                       </div>
                       <span style={{ fontSize:12,fontWeight:700,color:"#EAEBF2" }}>{r.user}</span>
                       <span style={{ fontSize:11,color:"#3A4060" }}>reviewed</span>
-                      <span style={{ fontSize:12,fontWeight:700,color:"#9CA3AF" }}>{game.title}</span>
+                      <span style={{ fontSize:12,fontWeight:700,color:"#9CA3AF",
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120 }}>{game.title}</span>
                     </div>
-                    <div style={{ display:"flex",gap:1,marginBottom:6 }}>
+                    <div style={{ display:"flex",gap:1,marginBottom:5 }}>
                       {"★".repeat(r.rating).split("").map((_,j)=>(
-                        <span key={j} style={{ fontSize:13,color:"#F0A500" }}>★</span>
+                        <span key={j} style={{ fontSize:12,color:"#F0A500" }}>★</span>
                       ))}
                     </div>
                     <div style={{ fontSize:12,color:"#7B8099",lineHeight:1.6,
                       display:"-webkit-box",WebkitLineClamp:2,
                       WebkitBoxOrient:"vertical",overflow:"hidden" }}>{r.text}</div>
-                    <div style={{ fontSize:11,color:"#3A4060",marginTop:6 }}>♥ {r.likes}</div>
+                    <div style={{ fontSize:11,color:"#3A4060",marginTop:5 }}>♥ {r.likes}</div>
                   </div>
                 </div>
               );
@@ -1066,11 +1126,10 @@ function LandingPage({ onGoAuth }) {
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div style={{ display:"flex",flexDirection:"column",gap:36 }}>
-          {/* Popular Lists */}
+        {/* Sidebar — shown below on mobile */}
+        <div style={{ display:"flex",flexDirection:"column",gap:28 }}>
           <div>
-            <div style={{ display:"flex",justifyContent:"space-between",marginBottom:16 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",marginBottom:14 }}>
               <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.13em",
                 color:"#555D7A",textTransform:"uppercase" }}>Popular Lists</div>
               <button onClick={()=>onGoAuth("signup")}
@@ -1079,8 +1138,7 @@ function LandingPage({ onGoAuth }) {
             </div>
             <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
               {SAMPLE_LISTS.map((l,i)=>(
-                <div key={i} onClick={()=>onGoAuth("signup")}
-                  style={{ display:"flex",gap:10,cursor:"pointer" }}>
+                <div key={i} onClick={()=>onGoAuth("signup")} style={{ display:"flex",gap:10,cursor:"pointer" }}>
                   <div style={{ display:"flex",gap:3,flexShrink:0 }}>
                     {l.covers.slice(0,3).map(id=>{
                       const g=GAME_MAP[id];
@@ -1089,43 +1147,34 @@ function LandingPage({ onGoAuth }) {
                     })}
                   </div>
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:12,fontWeight:700,color:"#EAEBF2",lineHeight:1.3,
-                      marginBottom:2 }}>{l.title}</div>
-                    <div style={{ fontSize:11,color:"#3A4060" }}>
-                      {l.count} games · by {l.user}
-                    </div>
+                    <div style={{ fontSize:12,fontWeight:700,color:"#EAEBF2",lineHeight:1.3,marginBottom:2 }}>{l.title}</div>
+                    <div style={{ fontSize:11,color:"#3A4060" }}>{l.count} games · by {l.user}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Popular Members */}
           <div>
-            <div style={{ display:"flex",justifyContent:"space-between",marginBottom:16 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",marginBottom:14 }}>
               <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.13em",
                 color:"#555D7A",textTransform:"uppercase" }}>Popular Members</div>
-              <button onClick={()=>onGoAuth("signup")}
-                style={{ fontSize:11,fontWeight:700,color:"#3A4060",background:"none",
-                  border:"none",cursor:"pointer",letterSpacing:"0.06em" }}>MORE</button>
             </div>
             <div style={{ display:"flex",flexWrap:"wrap",gap:10 }}>
               {SAMPLE_MEMBERS.map((m,i)=>(
                 <div key={i} onClick={()=>onGoAuth("signup")}
-                  title={m.name}
                   style={{ display:"flex",flexDirection:"column",alignItems:"center",
-                    gap:5,cursor:"pointer",width:60 }}>
-                  <div style={{ width:40,height:40,borderRadius:"50%",
+                    gap:4,cursor:"pointer",width:54 }}>
+                  <div style={{ width:38,height:38,borderRadius:"50%",
                     background:`linear-gradient(135deg,hsl(${m.hue},60%,45%),hsl(${m.hue+40},70%,30%))`,
                     display:"flex",alignItems:"center",justifyContent:"center",
-                    fontSize:16,fontWeight:900,color:"#fff" }}>
+                    fontSize:14,fontWeight:900,color:"#fff" }}>
                     {m.name[0].toUpperCase()}
                   </div>
-                  <div style={{ fontSize:10,color:"#7B8099",textAlign:"center",
+                  <div style={{ fontSize:9,color:"#7B8099",textAlign:"center",
                     whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",width:"100%" }}>
                     {m.name}
                   </div>
-                  <div style={{ fontSize:10,color:"#3A4060" }}>{m.played}</div>
                 </div>
               ))}
             </div>
@@ -1133,38 +1182,38 @@ function LandingPage({ onGoAuth }) {
         </div>
       </div>
 
-      {/* ── STORIES ───────────────────────────────────── */}
-      <div style={{ borderTop:"1px solid #12141C",padding:"36px 32px 48px" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:24,
-          maxWidth:1200,margin:"0 auto 24px" }}>
+      {/* ── STORIES ── */}
+      <div style={{ borderTop:"1px solid #12141C",
+        padding:mobile?"28px 16px 40px":"36px 32px 48px" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:20 }}>
           <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.13em",
             color:"#555D7A",textTransform:"uppercase" }}>Recent Stories</div>
           <button onClick={()=>onGoAuth("signup")}
             style={{ fontSize:11,fontWeight:700,color:"#3A4060",background:"none",
               border:"none",cursor:"pointer",letterSpacing:"0.06em" }}>ALL STORIES</button>
         </div>
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,
-          maxWidth:1200,margin:"0 auto" }}>
-          {SAMPLE_STORIES.map((s,i)=>{
+        <div style={{ display:"grid",
+          gridTemplateColumns:mobile?"1fr":tablet?"repeat(2,1fr)":"repeat(3,1fr)",
+          gap:16,maxWidth:1200,margin:"0 auto" }}>
+          {SAMPLE_STORIES.slice(0, mobile?3:6).map((s,i)=>{
             const g=GAME_MAP[s.coverId];
             return (
               <div key={i} className="story-card" onClick={()=>onGoAuth("signup")}
                 style={{ background:"#0D0F17",borderRadius:10,overflow:"hidden",
                   border:"1px solid #12141C",cursor:"pointer" }}>
-                <div style={{ height:120,background:g?gameBg(g.title):"#12141C",
-                  position:"relative" }}>
+                <div style={{ height:100,background:g?gameBg(g.title):"#12141C",position:"relative" }}>
                   <div style={{ position:"absolute",inset:0,
                     background:"linear-gradient(to bottom,transparent 40%,#0D0F17 100%)" }}/>
-                  <div style={{ position:"absolute",top:10,left:12 }}>
+                  <div style={{ position:"absolute",top:8,left:10 }}>
                     <span style={{ fontSize:9,fontWeight:700,letterSpacing:"0.1em",
-                      color:"#F0A500",background:"#F0A50022",padding:"3px 8px",
+                      color:"#F0A500",background:"#F0A50022",padding:"2px 7px",
                       borderRadius:4,border:"1px solid #F0A50033" }}>{s.tag}</span>
                   </div>
                 </div>
-                <div style={{ padding:"4px 16px 18px" }}>
+                <div style={{ padding:"4px 14px 16px" }}>
                   <div className="story-title"
-                    style={{ fontSize:14,fontWeight:800,color:"#EAEBF2",lineHeight:1.35,
-                      marginBottom:8,transition:"color 0.15s" }}>{s.title}</div>
+                    style={{ fontSize:13,fontWeight:800,color:"#EAEBF2",lineHeight:1.35,
+                      marginBottom:6,transition:"color 0.15s" }}>{s.title}</div>
                   <div style={{ fontSize:12,color:"#555D7A",lineHeight:1.6,
                     display:"-webkit-box",WebkitLineClamp:2,
                     WebkitBoxOrient:"vertical",overflow:"hidden" }}>{s.excerpt}</div>
@@ -1175,40 +1224,25 @@ function LandingPage({ onGoAuth }) {
         </div>
       </div>
 
-      {/* ── FOOTER ────────────────────────────────────── */}
-      <div style={{ borderTop:"1px solid #12141C",padding:"24px 32px",
-        display:"flex",justifyContent:"space-between",alignItems:"center",
-        flexWrap:"wrap",gap:12 }}>
+      {/* ── FOOTER ── */}
+      <div style={{ borderTop:"1px solid #12141C",padding:mobile?"16px":"20px 32px",
+        display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12 }}>
         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
           <span>🎮</span>
           <span style={{ fontWeight:900,fontSize:13,color:"#3A4060",letterSpacing:"-0.02em" }}>BACKLOG</span>
         </div>
-        <div style={{ display:"flex",gap:20,flexWrap:"wrap" }}>
-          {["About","Pro","News","Help","Games","Lists","Members","Journal","Contact"].map(l=>(
-            <button key={l} onClick={()=>onGoAuth("signup")}
-              style={{ fontSize:11,color:"#2E3450",background:"none",border:"none",cursor:"pointer" }}>
-              {l}
-            </button>
-          ))}
-        </div>
+        {!mobile && (
+          <div style={{ display:"flex",gap:20,flexWrap:"wrap" }}>
+            {["About","Pro","News","Help","Games","Lists","Members","Contact"].map(l=>(
+              <button key={l} onClick={()=>onGoAuth("signup")}
+                style={{ fontSize:11,color:"#2E3450",background:"none",border:"none",cursor:"pointer" }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ fontSize:11,color:"#2E3450" }}>© 2024 Backlog</div>
       </div>
-    </div>
-  );
-}
-
-// ─── Auth page ─────────────────────────────────────────────────────
-function Field({ label, type="text", value, onChange, error, placeholder }) {
-  return (
-    <div style={{ marginBottom:16 }}>
-      <label style={{ display:"block",fontSize:11,fontWeight:700,letterSpacing:"0.1em",
-        color:"#3A4060",textTransform:"uppercase",marginBottom:7 }}>{label}</label>
-      <input type={type} value={value} onChange={e=>onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{ width:"100%",padding:"11px 14px",background:"#0A0B0F",
-          border:`1px solid ${error?"#EF444466":"#1A1E2E"}`,borderRadius:8,
-          color:"#EAEBF2",fontSize:14,outline:"none",boxSizing:"border-box" }}/>
-      {error && <div style={{ fontSize:11,color:"#EF4444",marginTop:5 }}>{error}</div>}
     </div>
   );
 }
@@ -1408,6 +1442,31 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
 }
 
 // ─── Root ──────────────────────────────────────────────────────────
+function BottomNav({ tab, setTab }) {
+  const items = [
+    { id:"discover", icon:"🔍", label:"Discover" },
+    { id:"mygames",  icon:"🎮", label:"My Games" },
+    { id:"diary",    icon:"📔", label:"Diary"    },
+    { id:"profile",  icon:"👤", label:"Profile"  },
+  ];
+  return (
+    <div style={{ position:"fixed",bottom:0,left:0,right:0,zIndex:100,
+      background:"#0A0B0F",borderTop:"1px solid #12141C",
+      display:"flex",height:62,paddingBottom:"env(safe-area-inset-bottom)" }}>
+      {items.map(({ id, icon, label }) => (
+        <button key={id} onClick={() => setTab(id)}
+          style={{ flex:1,display:"flex",flexDirection:"column",
+            alignItems:"center",justifyContent:"center",gap:3,
+            background:"none",border:"none",cursor:"pointer",
+            color:tab===id?"#F0A500":"#555D7A",transition:"color 0.12s" }}>
+          <span style={{ fontSize:22 }}>{icon}</span>
+          <span style={{ fontSize:9,fontWeight:700,letterSpacing:"0.04em" }}>{label.toUpperCase()}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView]         = useState("loading");
   const [authMode, setAuthMode] = useState("signup");
@@ -1415,11 +1474,13 @@ export default function App() {
   const [tab, setTab]           = useState("discover");
   const [game, setGame]         = useState(null);
   const [q, setQ]               = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const [userGames, setUserGames] = useState({});
   const [favorites, setFavorites] = useState([]);
   const [profile,   setProfileState] = useState({ name:"Player One", bio:"" });
+  const w = useWindowWidth();
+  const mobile = w < 640;
 
-  // Convert DB rows → local map { [game_id]: { status, rating, review, date } }
   const rowsToMap = (rows) =>
     (rows||[]).reduce((acc,r)=>({
       ...acc,
@@ -1432,21 +1493,16 @@ export default function App() {
       supabase.from("profiles").select("*").eq("id", userId).single(),
     ]);
     if (games) setUserGames(rowsToMap(games));
-    if (prof)  {
+    if (prof) {
       setProfileState({ name: prof.username, bio: prof.bio||"" });
       setFavorites(prof.favorites||[]);
     }
   };
 
-  // On mount: restore session
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session:s } }) => {
-      if (s) {
-        setSession(s);
-        loadUserData(s.user.id).then(() => setView("app"));
-      } else {
-        setView("landing");
-      }
+      if (s) { setSession(s); loadUserData(s.user.id).then(() => setView("app")); }
+      else setView("landing");
     });
     const { data:{ subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       if (event==="SIGNED_OUT") {
@@ -1460,16 +1516,11 @@ export default function App() {
 
   const handleSave = useCallback(async (id, data) => {
     if (!session) return;
-    // Optimistic local update
     setUserGames(prev => ({ ...prev, [id]:{ ...prev[id], ...data } }));
-    // Persist
     await supabase.from("user_games").upsert({
-      user_id:   session.user.id,
-      game_id:   id,
-      status:    data.status  ?? null,
-      rating:    data.rating  ?? 0,
-      review:    data.review  ?? "",
-      logged_at: data.date    ?? new Date().toISOString(),
+      user_id: session.user.id, game_id: id,
+      status: data.status??null, rating: data.rating??0,
+      review: data.review??"", logged_at: data.date??new Date().toISOString(),
     }, { onConflict:"user_id,game_id" });
   }, [session]);
 
@@ -1489,17 +1540,12 @@ export default function App() {
     setSession(s);
     if (prof) setProfileState(prof);
     if (s) loadUserData(s.user.id);
-    setView("app");
-    setTab("discover");
+    setView("app"); setTab("discover");
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
+  const handleLogout = async () => { await supabase.auth.signOut(); };
   const goAuth = (mode) => { setAuthMode(mode); setView("auth"); };
 
-  // Loading screen
   if (view==="loading") return (
     <div style={{ minHeight:"100vh",background:"#0A0B0F",display:"flex",
       alignItems:"center",justifyContent:"center",gap:12,
@@ -1522,52 +1568,101 @@ export default function App() {
         textarea:focus,input:focus{border-color:#F0A50055!important}
         select option{background:#181B25}
       `}</style>
+
+      {/* Top nav */}
       <nav style={{ background:"#0A0B0F",borderBottom:"1px solid #12141C",
-        display:"flex",alignItems:"center",padding:"0 20px",
-        position:"sticky",top:0,zIndex:100,height:54 }}>
+        display:"flex",alignItems:"center",padding:"0 16px",
+        position:"sticky",top:0,zIndex:100,height:54,gap:8 }}>
+
+        {/* Logo */}
         <div onClick={()=>setTab("discover")} style={{ display:"flex",alignItems:"center",
-          gap:8,marginRight:28,cursor:"pointer",userSelect:"none" }}>
+          gap:8,cursor:"pointer",userSelect:"none",marginRight:mobile?0:20 }}>
           <span style={{ fontSize:20 }}>🎮</span>
-          <span style={{ fontWeight:900,fontSize:15,color:"#EAEBF2",letterSpacing:"-0.03em" }}>BACKLOG</span>
+          {!mobile && <span style={{ fontWeight:900,fontSize:15,color:"#EAEBF2",letterSpacing:"-0.03em" }}>BACKLOG</span>}
         </div>
-        <div style={{ display:"flex",gap:2,flex:1 }}>
-          {[["discover","Discover"],["mygames","My Games"],["diary","Diary"],["profile","Profile"]].map(([id,label])=>(
-            <button key={id} onClick={()=>setTab(id)} style={{ padding:"6px 12px",
-              background:"none",border:"none",cursor:"pointer",fontSize:13,
-              fontWeight:tab===id?700:400,color:tab===id?"#F0A500":"#555D7A",
-              borderBottom:tab===id?"2px solid #F0A500":"2px solid transparent",
-              marginBottom:-1,transition:"color 0.12s" }}>{label}</button>
-          ))}
-        </div>
-        <div style={{ position:"relative",marginRight:12 }}>
-          <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#3A4060",fontSize:13 }}>🔍</span>
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search..."
-            style={{ padding:"6px 11px 6px 30px",background:"#181B25",
-              border:"1px solid #22263A",borderRadius:7,color:"#EAEBF2",fontSize:12,outline:"none",width:180 }}/>
-        </div>
+
+        {/* Desktop tab links */}
+        {!mobile && (
+          <div style={{ display:"flex",gap:2,flex:1 }}>
+            {[["discover","Discover"],["mygames","My Games"],["diary","Diary"],["profile","Profile"]].map(([id,label])=>(
+              <button key={id} onClick={()=>setTab(id)} style={{ padding:"6px 12px",
+                background:"none",border:"none",cursor:"pointer",fontSize:13,
+                fontWeight:tab===id?700:400,color:tab===id?"#F0A500":"#555D7A",
+                borderBottom:tab===id?"2px solid #F0A500":"2px solid transparent",
+                marginBottom:-1,transition:"color 0.12s" }}>{label}</button>
+            ))}
+          </div>
+        )}
+
+        {/* Search — full width on mobile when open */}
+        {mobile ? (
+          <>
+            <div style={{ flex:1 }}/>
+            {showSearch && (
+              <input value={q} onChange={e=>setQ(e.target.value)}
+                autoFocus onBlur={()=>{ if(!q) setShowSearch(false); }}
+                placeholder="Search games..."
+                style={{ flex:1,padding:"6px 11px",background:"#181B25",
+                  border:"1px solid #22263A",borderRadius:7,color:"#EAEBF2",
+                  fontSize:13,outline:"none" }}/>
+            )}
+            <button onClick={()=>setShowSearch(s=>!s)}
+              style={{ background:"none",border:"none",cursor:"pointer",
+                fontSize:18,color:"#555D7A",padding:"4px" }}>🔍</button>
+          </>
+        ) : (
+          <div style={{ position:"relative",marginRight:12 }}>
+            <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#3A4060",fontSize:13 }}>🔍</span>
+            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search..."
+              style={{ padding:"6px 11px 6px 30px",background:"#181B25",
+                border:"1px solid #22263A",borderRadius:7,color:"#EAEBF2",fontSize:12,outline:"none",width:180 }}/>
+          </div>
+        )}
+
+        {/* User chip */}
         <div onClick={()=>setTab("profile")}
-          style={{ display:"flex",alignItems:"center",gap:8,cursor:"pointer",
-            padding:"4px 10px",borderRadius:8,border:"1px solid #1A1E2E",
-            background:"#12141C",marginRight:8 }}>
-          <div style={{ width:22,height:22,borderRadius:"50%",
+          style={{ display:"flex",alignItems:"center",gap:mobile?0:8,cursor:"pointer",
+            padding:mobile?"4px":"4px 10px",borderRadius:8,
+            border:mobile?"none":"1px solid #1A1E2E",
+            background:mobile?"none":"#12141C",
+            marginRight:mobile?0:8,flexShrink:0 }}>
+          <div style={{ width:28,height:28,borderRadius:"50%",
             background:"linear-gradient(135deg,#F0A500,#7C3AED)",
             display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:11,fontWeight:800,color:"#fff",flexShrink:0 }}>
+            fontSize:12,fontWeight:800,color:"#fff",flexShrink:0 }}>
             {profile.name[0].toUpperCase()}
           </div>
-          <span style={{ fontSize:12,fontWeight:600,color:"#EAEBF2" }}>{profile.name}</span>
+          {!mobile && <span style={{ fontSize:12,fontWeight:600,color:"#EAEBF2" }}>{profile.name}</span>}
         </div>
-        <button onClick={handleLogout}
-          style={{ fontSize:11,fontWeight:700,color:"#3A4060",background:"none",
-            border:"1px solid #1A1E2E",borderRadius:7,padding:"5px 10px",
-            cursor:"pointer",letterSpacing:"0.05em" }}>SIGN OUT</button>
+
+        {!mobile && (
+          <button onClick={handleLogout}
+            style={{ fontSize:11,fontWeight:700,color:"#3A4060",background:"none",
+              border:"1px solid #1A1E2E",borderRadius:7,padding:"5px 10px",
+              cursor:"pointer",letterSpacing:"0.05em",flexShrink:0 }}>SIGN OUT</button>
+        )}
+
+        {/* Mobile: sign out as small text */}
+        {mobile && (
+          <button onClick={handleLogout}
+            style={{ background:"none",border:"none",cursor:"pointer",
+              color:"#3A4060",fontSize:11,fontWeight:600,flexShrink:0,padding:"4px" }}>Out</button>
+        )}
       </nav>
-      {tab==="discover"&&<Discover games={GAMES} userGames={userGames} onOpen={setGame} q={q}/>}
-      {tab==="mygames" &&<MyGames  games={GAMES} userGames={userGames} onOpen={setGame}/>}
-      {tab==="diary"   &&<Diary    games={GAMES} userGames={userGames} onOpen={setGame}/>}
-      {tab==="profile" &&<Profile  games={GAMES} userGames={userGames} onOpen={setGame}
-        favorites={favorites} setFavorites={handleSetFavorites}
-        profile={profile}    setProfile={handleSetProfile}/>}
+
+      {/* Page content — extra bottom padding on mobile for bottom nav */}
+      <div style={{ paddingBottom:mobile?70:0 }}>
+        {tab==="discover"&&<Discover games={GAMES} userGames={userGames} onOpen={setGame} q={q}/>}
+        {tab==="mygames" &&<MyGames  games={GAMES} userGames={userGames} onOpen={setGame}/>}
+        {tab==="diary"   &&<Diary    games={GAMES} userGames={userGames} onOpen={setGame}/>}
+        {tab==="profile" &&<Profile  games={GAMES} userGames={userGames} onOpen={setGame}
+          favorites={favorites} setFavorites={handleSetFavorites}
+          profile={profile}    setProfile={handleSetProfile}/>}
+      </div>
+
+      {/* Mobile bottom nav */}
+      {mobile && <BottomNav tab={tab} setTab={setTab}/>}
+
       {game&&<Modal game={game} ug={userGames[game.id]} onClose={()=>setGame(null)} onSave={handleSave}/>}
     </div>
   );
