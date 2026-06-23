@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js"
+import { getPopular, searchGames, getDetail, fmtGame } from "./rawg.js"
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 function useWindowWidth() {
@@ -98,7 +99,10 @@ function MiniCover({ title, size=52 }) {
 
 function Card({ game, ug, onOpen }) {
   const [hov, setHov] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
   const accent = gameAccent(game.title);
+  const showImg = game.cover && !imgErr;
+
   return (
     <div onClick={() => onOpen(game)}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
@@ -107,20 +111,30 @@ function Card({ game, ug, onOpen }) {
         transition:"transform 0.18s,box-shadow 0.18s,border-color 0.18s",
         transform:hov?"translateY(-4px)":"none",
         boxShadow:hov?"0 12px 32px #00000066":"none" }}>
-      <div style={{ aspectRatio:"3/4",background:gameBg(game.title),
-        position:"relative",display:"flex",alignItems:"flex-end",padding:10 }}>
+      <div style={{ aspectRatio:"3/4",position:"relative",overflow:"hidden",
+        background:showImg?"#0A0B0F":gameBg(game.title) }}>
+        {showImg && (
+          <img src={game.cover} alt={game.title}
+            onError={()=>setImgErr(true)}
+            style={{ width:"100%",height:"100%",objectFit:"cover",display:"block",
+              transition:"transform 0.3s",transform:hov?"scale(1.05)":"scale(1)" }}/>
+        )}
         <div style={{ position:"absolute",inset:0,
-          background:"linear-gradient(to bottom,transparent 45%,#00000088 100%)" }}/>
-        <div style={{ position:"absolute",top:8,right:8,width:28,height:28,
-          borderRadius:6,background:"#ffffff14",display:"flex",
-          alignItems:"center",justifyContent:"center",
-          fontSize:13,fontWeight:800,color:"#ffffff55" }}>{game.title[0]}</div>
-        {ug?.status && <div style={{ position:"relative",zIndex:1 }}><Badge status={ug.status}/></div>}
+          background:"linear-gradient(to bottom,transparent 55%,#00000099 100%)" }}/>
+        {ug?.status && (
+          <div style={{ position:"absolute",bottom:8,left:8,zIndex:1 }}>
+            <Badge status={ug.status}/>
+          </div>
+        )}
       </div>
       <div style={{ padding:"9px 11px 12px" }}>
         <div style={{ fontWeight:700,fontSize:12,color:"#EAEBF2",lineHeight:1.3,
-          marginBottom:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{game.title}</div>
-        <div style={{ fontSize:11,color:"#555D7A",marginBottom:6 }}>{game.year} · {game.genre}</div>
+          marginBottom:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+          {game.title}
+        </div>
+        <div style={{ fontSize:11,color:"#555D7A",marginBottom:6 }}>
+          {[game.year,game.genre].filter(Boolean).join(" · ")}
+        </div>
         {ug?.rating>0 ? <Stars value={ug.rating} readonly size={12}/> :
           <div style={{ fontSize:11,color:"#2E3450" }}>Not rated</div>}
       </div>
@@ -133,9 +147,19 @@ function Modal({ game, ug, onClose, onSave }) {
   const [rating, setRating] = useState(ug?.rating??0);
   const [review, setReview] = useState(ug?.review??"");
   const [saved, setSaved] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [imgErr, setImgErr] = useState(false);
   const accent = gameAccent(game.title);
   const w = useWindowWidth();
   const mobile = w < 640;
+
+  // Fetch full details (description, developer) from RAWG
+  useEffect(() => {
+    getDetail(game.id).then(setDetail).catch(()=>{});
+  }, [game.id]);
+
+  const g = detail || game; // use full detail when available
+  const showImg = g.cover && !imgErr;
 
   useEffect(() => {
     const fn = e => e.key==="Escape" && onClose();
@@ -144,10 +168,29 @@ function Modal({ game, ug, onClose, onSave }) {
   }, [onClose]);
 
   const handleSave = () => {
-    onSave(game.id, { status, rating, review, date: new Date().toISOString() });
+    onSave(game.id, {
+      status, rating, review, date: new Date().toISOString(),
+      title: g.title, cover: g.cover, year: g.year,
+      genre: g.genre, developer: g.developer,
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
   };
+
+  const CoverPanel = () => (
+    <div style={{ background: showImg ? "#0A0B0F" : gameBg(game.title), position:"relative",
+      overflow:"hidden", flexShrink:0,
+      width:mobile?56:160, height:mobile?75:undefined, minHeight:mobile?undefined:"100%" }}>
+      {showImg && (
+        <img src={g.cover} alt={g.title} onError={()=>setImgErr(true)}
+          style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
+      )}
+      {!mobile && (
+        <div style={{ position:"absolute",inset:0,
+          background:"linear-gradient(to right,transparent 60%,#12141C 100%)" }}/>
+      )}
+    </div>
+  );
 
   return (
     <div onClick={onClose} style={{ position:"fixed",inset:0,zIndex:200,
@@ -158,59 +201,57 @@ function Modal({ game, ug, onClose, onSave }) {
         border:"1px solid #1A1E2E",
         borderRadius:mobile?"16px 16px 0 0":16,
         width:"100%",maxWidth:mobile?"100%":720,
-        maxHeight:mobile?"92vh":"92vh",
-        overflow:"hidden",display:"flex",flexDirection:"column" }}>
+        maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column" }}>
 
-        {/* Cover + info — stacked on mobile, side by side on desktop */}
+        {/* Header */}
         {mobile ? (
-          <div style={{ flexShrink:0 }}>
-            {/* Mobile: horizontal mini-cover + title */}
-            <div style={{ display:"flex",gap:14,padding:"20px 20px 16px",alignItems:"center" }}>
-              <div style={{ width:56,height:75,borderRadius:8,flexShrink:0,
-                background:gameBg(game.title) }}/>
-              <div style={{ flex:1,minWidth:0 }}>
-                <div style={{ fontSize:17,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:3 }}>{game.title}</div>
-                <div style={{ fontSize:11,color:"#555D7A",marginBottom:10 }}>
-                  {game.developer} · {game.year} · {game.genre}</div>
-                <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-                  {["Want to Play","Playing","Played"].map(s => (
-                    <button key={s} onClick={() => setStatus(status===s?null:s)} style={{
-                      padding:"5px 10px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",
-                      border:`1px solid ${status===s?accent:"#22263A"}`,
-                      background:status===s?accent+"22":"#181B25",
-                      color:status===s?accent:"#555D7A" }}>{s}</button>
-                  ))}
-                </div>
+          <div style={{ display:"flex",gap:14,padding:"20px 20px 16px",alignItems:"center",flexShrink:0 }}>
+            <CoverPanel/>
+            <div style={{ flex:1,minWidth:0 }}>
+              <div style={{ fontSize:17,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:3 }}>{g.title}</div>
+              <div style={{ fontSize:11,color:"#555D7A",marginBottom:10 }}>
+                {[g.developer,g.year,g.genre].filter(Boolean).join(" · ")}
               </div>
-              <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",
-                color:"#555D7A",fontSize:24,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
+              <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+                {["Want to Play","Playing","Played"].map(s=>(
+                  <button key={s} onClick={()=>setStatus(status===s?null:s)} style={{
+                    padding:"5px 10px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",
+                    border:`1px solid ${status===s?accent:"#22263A"}`,
+                    background:status===s?accent+"22":"#181B25",
+                    color:status===s?accent:"#555D7A" }}>{s}</button>
+                ))}
+              </div>
             </div>
+            <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",
+              color:"#555D7A",fontSize:24,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
           </div>
         ) : (
-          <div style={{ display:"flex",flexShrink:0 }}>
-            <div style={{ width:160,minWidth:160,flexShrink:0,background:gameBg(game.title),position:"relative" }}>
-              <div style={{ position:"absolute",inset:0,
-                background:"linear-gradient(to right,transparent 60%,#12141C 100%)" }}/>
-            </div>
+          <div style={{ display:"flex",flexShrink:0,height:200 }}>
+            <CoverPanel/>
             <div style={{ flex:1,padding:"24px 24px 20px 20px",minWidth:0 }}>
               <div style={{ display:"flex",justifyContent:"space-between",gap:8 }}>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:22,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:4 }}>{game.title}</div>
+                  <div style={{ fontSize:22,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:4 }}>{g.title}</div>
                   <div style={{ fontSize:12,color:"#555D7A",marginBottom:12 }}>
-                    {game.developer} · {game.year} · {game.genre}</div>
+                    {[g.developer,g.year,g.genre].filter(Boolean).join(" · ")}
+                  </div>
                 </div>
                 <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",
                   color:"#555D7A",fontSize:24,lineHeight:1,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
               </div>
-              <div style={{ fontSize:13,color:"#7B8099",lineHeight:1.65,marginBottom:16 }}>{game.description}</div>
+              {g.description && (
+                <div style={{ fontSize:13,color:"#7B8099",lineHeight:1.65,marginBottom:16,
+                  display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden" }}>
+                  {g.description}
+                </div>
+              )}
               <div style={{ display:"flex",gap:7,flexWrap:"wrap" }}>
-                {["Want to Play","Playing","Played"].map(s => (
-                  <button key={s} onClick={() => setStatus(status===s?null:s)} style={{
-                    padding:"6px 13px",borderRadius:6,fontSize:12,fontWeight:600,
-                    cursor:"pointer",transition:"all 0.14s",
+                {["Want to Play","Playing","Played"].map(s=>(
+                  <button key={s} onClick={()=>setStatus(status===s?null:s)} style={{
+                    padding:"6px 13px",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer",
                     border:`1px solid ${status===s?accent:"#22263A"}`,
                     background:status===s?accent+"22":"#181B25",
-                    color:status===s?accent:"#555D7A",letterSpacing:"0.03em" }}>{s}</button>
+                    color:status===s?accent:"#555D7A" }}>{s}</button>
                 ))}
               </div>
             </div>
@@ -246,55 +287,118 @@ function Modal({ game, ug, onClose, onSave }) {
     </div>
   );
 }
+const GENRES = [
+  { label:"All",         slug:"" },
+  { label:"Action",      slug:"action" },
+  { label:"RPG",         slug:"role-playing-games-rpg" },
+  { label:"Shooter",     slug:"shooter" },
+  { label:"Adventure",   slug:"adventure" },
+  { label:"Puzzle",      slug:"puzzle" },
+  { label:"Strategy",    slug:"strategy" },
+  { label:"Sports",      slug:"sports" },
+  { label:"Platformer",  slug:"platformer" },
+  { label:"Fighting",    slug:"fighting" },
+  { label:"Simulation",  slug:"simulation" },
+  { label:"Racing",      slug:"racing" },
+];
 
-function Discover({ games, userGames, onOpen, q }) {
-  const [genre, setGenre] = useState("All");
-  const [sort, setSort] = useState("title");
+function SkeletonCard() {
+  return (
+    <div style={{ borderRadius:10,overflow:"hidden",background:"#12141C",border:"1px solid #1A1E2E" }}>
+      <div style={{ aspectRatio:"3/4",background:"linear-gradient(90deg,#1A1E2E 25%,#22263A 50%,#1A1E2E 75%)",
+        backgroundSize:"200% 100%",animation:"shimmer 1.4s infinite" }}/>
+      <div style={{ padding:"9px 11px 12px" }}>
+        <div style={{ height:11,background:"#1A1E2E",borderRadius:4,marginBottom:6 }}/>
+        <div style={{ height:9,background:"#12141C",borderRadius:4,width:"55%" }}/>
+      </div>
+    </div>
+  );
+}
+
+function Discover({ userGames, onOpen, q }) {
+  const [games, setGames]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [genre, setGenre]   = useState("");
+  const [page, setPage]     = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const w = useWindowWidth();
   const mobile = w < 640;
-  const genres = useMemo(() => ["All",...new Set(games.map(g=>g.genre))], [games]);
-  const filtered = useMemo(() => {
-    let r = games;
-    if (q) r = r.filter(g=>g.title.toLowerCase().includes(q.toLowerCase())||g.developer.toLowerCase().includes(q.toLowerCase()));
-    if (genre!=="All") r = r.filter(g=>g.genre===genre);
-    if (sort==="title") r=[...r].sort((a,b)=>a.title.localeCompare(b.title));
-    else if (sort==="year") r=[...r].sort((a,b)=>b.year-a.year);
-    else if (sort==="rating") r=[...r].sort((a,b)=>(userGames[b.id]?.rating||0)-(userGames[a.id]?.rating||0));
-    return r;
-  }, [games,q,genre,sort,userGames]);
+
+  // Debounce search query
+  const [debouncedQ, setDebouncedQ] = useState(q);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 450);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Reset when search or genre changes
+  useEffect(() => {
+    setGames([]);
+    setPage(1);
+    setHasMore(true);
+  }, [debouncedQ, genre]);
+
+  // Fetch games
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const fn = debouncedQ
+      ? searchGames(debouncedQ, page)
+      : getPopular(page, genre);
+    fn.then(results => {
+      if (cancelled) return;
+      setGames(prev => page===1 ? results : [...prev, ...results]);
+      setHasMore(results.length===24);
+      setLoading(false);
+    }).catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [debouncedQ, genre, page]);
 
   return (
-    <div style={{ padding:mobile?"16px 12px 48px":"22px 20px 48px" }}>
-      <div style={{ display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center" }}>
-        <div style={{ display:"flex",gap:6,flexWrap:"wrap",flex:1,minWidth:0 }}>
-          {genres.map(g=>(
-            <button key={g} onClick={()=>setGenre(g)} style={{ padding:"4px 10px",
-              borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
-              border:`1px solid ${genre===g?"#F0A500":"#1A1E2E"}`,
-              background:genre===g?"#F0A50020":"#12141C",
-              color:genre===g?"#F0A500":"#555D7A",
-              WebkitTapHighlightColor:"transparent" }}>{g}</button>
-          ))}
-        </div>
-        <select value={sort} onChange={e=>setSort(e.target.value)} style={{ padding:"5px 9px",
-          background:"#181B25",border:"1px solid #22263A",borderRadius:7,
-          color:"#7B8099",fontSize:11,cursor:"pointer",outline:"none",flexShrink:0 }}>
-          <option value="title">A – Z</option>
-          <option value="year">Newest</option>
-          <option value="rating">My rating</option>
-        </select>
+    <div style={{ padding:mobile?"12px 12px 80px":"20px 20px 48px" }}>
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+
+      {/* Genre chips */}
+      <div style={{ display:"flex",gap:6,marginBottom:16,overflowX:"auto",
+        scrollbarWidth:"none",paddingBottom:4,flexWrap:mobile?"nowrap":"wrap" }}>
+        {GENRES.map(g=>(
+          <button key={g.slug} onClick={()=>setGenre(g.slug)}
+            style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,
+              cursor:"pointer",flexShrink:0,
+              border:`1px solid ${genre===g.slug?"#F0A500":"#1A1E2E"}`,
+              background:genre===g.slug?"#F0A50020":"#12141C",
+              color:genre===g.slug?"#F0A500":"#555D7A",
+              WebkitTapHighlightColor:"transparent" }}>
+            {g.label}
+          </button>
+        ))}
       </div>
+
+      {/* Grid */}
       <div style={{ display:"grid",
         gridTemplateColumns:mobile?"repeat(auto-fill,minmax(110px,1fr))":"repeat(auto-fill,minmax(150px,1fr))",
         gap:mobile?10:14 }}>
-        {filtered.map(game=>(
+        {games.map(game=>(
           <Card key={game.id} game={game} ug={userGames[game.id]} onOpen={onOpen}/>
         ))}
+        {loading && Array.from({length:12}).map((_,i)=><SkeletonCard key={`sk${i}`}/>)}
       </div>
-      {filtered.length===0 && (
+
+      {!loading && games.length===0 && (
         <div style={{ textAlign:"center",padding:"60px 0",color:"#2E3450" }}>
           <div style={{ fontSize:36,marginBottom:10 }}>🔎</div>
           <div style={{ fontSize:14 }}>No games found</div>
+        </div>
+      )}
+
+      {!loading && hasMore && games.length>0 && (
+        <div style={{ textAlign:"center",marginTop:28 }}>
+          <button onClick={()=>setPage(p=>p+1)}
+            style={{ padding:"10px 28px",borderRadius:8,background:"#12141C",
+              border:"1px solid #1A1E2E",color:"#9CA3AF",fontSize:13,
+              fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent" }}>
+            Load more
+          </button>
         </div>
       )}
     </div>
@@ -983,6 +1087,8 @@ function LandingPage({ onGoAuth }) {
         <div style={{ display:"flex",gap:mobile?8:10,alignItems:"center" }}>
           <button onClick={()=>onGoAuth("signin")} className="lnav-link"
             style={{ fontSize:mobile?12:13 }}>Sign in</button>
+          {!mobile && <span style={{ color:"#2E3450",fontSize:13 }}>·</span>}
+          {!mobile && <button onClick={()=>onGoAuth("signup")} className="lnav-link">Create account</button>}
           <button onClick={()=>onGoAuth("signup")}
             style={{ padding:mobile?"6px 12px":"7px 16px",borderRadius:7,
               background:"#F0A500",border:"none",color:"#000",fontSize:mobile?12:13,
@@ -1502,7 +1608,17 @@ export default function App() {
   const rowsToMap = (rows) =>
     (rows||[]).reduce((acc,r)=>({
       ...acc,
-      [r.game_id]:{ status:r.status, rating:r.rating||0, review:r.review||"", date:r.logged_at }
+      [r.game_id]:{
+        status:    r.status,
+        rating:    r.rating||0,
+        review:    r.review||"",
+        date:      r.logged_at,
+        title:     r.game_title,
+        cover:     r.game_cover,
+        year:      r.game_year,
+        genre:     r.game_genre,
+        developer: r.game_developer,
+      }
     }),{});
 
   const loadUserData = async (userId) => {
@@ -1536,9 +1652,17 @@ export default function App() {
     if (!session) return;
     setUserGames(prev => ({ ...prev, [id]:{ ...prev[id], ...data } }));
     await supabase.from("user_games").upsert({
-      user_id: session.user.id, game_id: id,
-      status: data.status??null, rating: data.rating??0,
-      review: data.review??"", logged_at: data.date??new Date().toISOString(),
+      user_id:       session.user.id,
+      game_id:       id,
+      status:        data.status    ?? null,
+      rating:        data.rating    ?? 0,
+      review:        data.review    ?? "",
+      logged_at:     data.date      ?? new Date().toISOString(),
+      game_title:    data.title     ?? null,
+      game_cover:    data.cover     ?? null,
+      game_year:     data.year      ?? null,
+      game_genre:    data.genre     ?? null,
+      game_developer:data.developer ?? null,
     }, { onConflict:"user_id,game_id" });
   }, [session]);
 
@@ -1563,6 +1687,19 @@ export default function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); };
   const goAuth = (mode) => { setAuthMode(mode); setView("auth"); };
+
+  // Build game objects from stored metadata for My Games / Diary / Profile
+  const loggedGames = useMemo(() =>
+    Object.entries(userGames).map(([id, ug]) => ({
+      id:        parseInt(id),
+      title:     ug.title     || `Game #${id}`,
+      cover:     ug.cover     || null,
+      year:      ug.year      || null,
+      genre:     ug.genre     || null,
+      developer: ug.developer || null,
+    })),
+    [userGames]
+  );
 
   if (view==="loading") return (
     <div style={{ minHeight:"100vh",background:"#0A0B0F",display:"flex",
@@ -1670,10 +1807,10 @@ export default function App() {
 
       {/* Page content — extra bottom padding on mobile for bottom nav */}
       <div style={{ paddingBottom:mobile?70:0 }}>
-        {tab==="discover"&&<Discover games={GAMES} userGames={userGames} onOpen={setGame} q={q}/>}
-        {tab==="mygames" &&<MyGames  games={GAMES} userGames={userGames} onOpen={setGame}/>}
-        {tab==="diary"   &&<Diary    games={GAMES} userGames={userGames} onOpen={setGame}/>}
-        {tab==="profile" &&<Profile  games={GAMES} userGames={userGames} onOpen={setGame}
+        {tab==="discover"&&<Discover userGames={userGames} onOpen={setGame} q={q}/>}
+        {tab==="mygames" &&<MyGames  games={loggedGames} userGames={userGames} onOpen={setGame}/>}
+        {tab==="diary"   &&<Diary    games={loggedGames} userGames={userGames} onOpen={setGame}/>}
+        {tab==="profile" &&<Profile  games={loggedGames} userGames={userGames} onOpen={setGame}
           favorites={favorites} setFavorites={handleSetFavorites}
           profile={profile}    setProfile={handleSetProfile}/>}
       </div>
