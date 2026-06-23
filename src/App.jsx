@@ -62,7 +62,7 @@ const STATUS_META = {
 function Badge({ status }) {
   if (!status) return null;
   const m = STATUS_META[status];
-  return <span style={{ fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:4,
+  return <span style={{ fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:5,
     background:m.bg,color:m.text,border:`1px solid ${m.border}`,
     letterSpacing:"0.06em",whiteSpace:"nowrap" }}>{status.toUpperCase()}</span>;
 }
@@ -71,7 +71,7 @@ function Stars({ value=0, onChange, size=18, readonly }) {
   const [hov, setHov] = useState(0);
   const disp = hov || value;
   return (
-    <div style={{ display:"flex",gap:1 }}>
+    <div style={{ display:"flex",gap:2 }}>
       {[1,2,3,4,5].map(i => (
         <span key={i}
           onClick={() => !readonly && onChange && onChange(i===value?0:i)}
@@ -90,10 +90,10 @@ function MiniCover({ title, size=52 }) {
     <div style={{ width:size,height:size*1.35,borderRadius:6,flexShrink:0,
       background:gameBg(title),position:"relative",overflow:"hidden" }}>
       <div style={{ position:"absolute",inset:0,
-        background:"linear-gradient(to bottom,transparent 40%,#00000077 100%)" }}/>
+        background:"linear-gradient(to bottom,transparent 40%,#00000088 100%)" }}/>
       <div style={{ position:"absolute",bottom:3,left:0,right:0,textAlign:"center",
-        fontSize:7,color:"#ffffffBB",fontWeight:700,padding:"0 3px",lineHeight:1.2 }}>
-        {title.length>14 ? title.slice(0,12)+"…" : title}
+        fontSize:9,color:"#ffffffCC",fontWeight:700,padding:"0 4px",lineHeight:1.2 }}>
+        {title.length>15 ? title.slice(0,13)+"…" : title}
       </div>
     </div>
   );
@@ -240,31 +240,46 @@ function Modal({ game, ug, onClose, onSave, onDelete }) {
       justifyContent:"center",padding:mobile?0:16 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:"#12141C",
         border:"1px solid #1A1E2E",
-        borderRadius:mobile?"16px 16px 0 0":16,
+        borderRadius:mobile?"20px 20px 0 0":16,
         width:"100%",maxWidth:mobile?"100%":720,
-        maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column" }}>
+        maxHeight:mobile?"95vh":"92vh",overflow:"hidden",display:"flex",flexDirection:"column" }}>
 
         {/* Header */}
         {mobile ? (
-          <div style={{ display:"flex",gap:14,padding:"20px 20px 16px",alignItems:"center",flexShrink:0 }}>
-            <CoverPanel/>
-            <div style={{ flex:1,minWidth:0 }}>
-              <div style={{ fontSize:17,fontWeight:800,color:"#EAEBF2",lineHeight:1.2,marginBottom:3 }}>{g.title}</div>
-              <div style={{ fontSize:11,color:"#555D7A",marginBottom:10 }}>
+          <div style={{ flexShrink:0 }}>
+            {/* Drag handle */}
+            <div style={{ display:"flex",justifyContent:"center",paddingTop:10,paddingBottom:4 }}>
+              <div style={{ width:36,height:4,borderRadius:2,background:"#2E3450" }}/>
+            </div>
+            {/* Full-width cover banner */}
+            <div style={{ position:"relative",height:150,overflow:"hidden",
+              background:g.cover?`url(${g.cover}) center/cover no-repeat`:gameBg(game.title) }}>
+              <div style={{ position:"absolute",inset:0,
+                background:"linear-gradient(to bottom,transparent 20%,#12141C 100%)" }}/>
+              <button onClick={onClose}
+                style={{ position:"absolute",top:10,right:10,
+                  width:32,height:32,borderRadius:16,
+                  background:"rgba(0,0,0,0.55)",border:"none",cursor:"pointer",
+                  color:"#EAEBF2",fontSize:18,display:"flex",alignItems:"center",
+                  justifyContent:"center",WebkitTapHighlightColor:"transparent" }}>×</button>
+            </div>
+            {/* Title + meta + status */}
+            <div style={{ padding:"0 20px 16px",marginTop:-32,position:"relative" }}>
+              <div style={{ fontSize:19,fontWeight:800,color:"#EAEBF2",lineHeight:1.25,marginBottom:4 }}>{g.title}</div>
+              <div style={{ fontSize:12,color:"#7B8099",marginBottom:14 }}>
                 {[g.developer,g.year,g.genre].filter(Boolean).join(" · ")}
               </div>
-              <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+              <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
                 {["Want to Play","Playing","Played"].map(s=>(
-                  <button key={s} onClick={()=>setStatus(status===s?null:s)} style={{
-                    padding:"5px 10px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",
-                    border:`1px solid ${status===s?accent:"#22263A"}`,
-                    background:status===s?accent+"22":"#181B25",
-                    color:status===s?accent:"#555D7A" }}>{s}</button>
+                  <button key={s} onClick={()=>setStatus(status===s?null:s)}
+                    style={{ padding:"8px 14px",borderRadius:8,fontSize:12,fontWeight:600,
+                      cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                      border:`1px solid ${status===s?accent:"#22263A"}`,
+                      background:status===s?accent+"22":"#181B25",
+                      color:status===s?accent:"#6B7280" }}>{s}</button>
                 ))}
               </div>
             </div>
-            <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",
-              color:"#555D7A",fontSize:24,padding:0,flexShrink:0,alignSelf:"flex-start" }}>×</button>
           </div>
         ) : (
           <div style={{ display:"flex",flexShrink:0,height:200 }}>
@@ -300,7 +315,7 @@ function Modal({ game, ug, onClose, onSave, onDelete }) {
         )}
 
         <div style={{ height:1,background:"#1A1E2E",flexShrink:0 }}/>
-        <div style={{ overflowY:"auto",padding:mobile?"16px 20px 28px":"20px 24px 28px",flex:1 }}>
+        <div style={{ overflowY:"auto",padding:mobile?"20px 20px 32px":"20px 24px 28px",flex:1 }}>
           <div style={{ marginBottom:20 }}>
             <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.12em",
               color:"#3A4060",textTransform:"uppercase",marginBottom:9 }}>Your rating</div>
@@ -450,7 +465,7 @@ function Discover({ userGames, onOpen, q, onQuickAdd }) {
         {GENRES.map(g=>(
           <button key={g.slug} onClick={()=>setGenre(g.slug)}
             style={{ padding:mobile?"8px 16px":"4px 12px",borderRadius:mobile?24:20,fontSize:mobile?12:11,fontWeight:600,
-              cursor:"pointer",flexShrink:0,minHeight:mobile?40:32,
+              cursor:"pointer",flexShrink:0,minHeight:mobile?44:32,
               border:`1px solid ${genre===g.slug?"#F0A500":"#1A1E2E"}`,
               background:genre===g.slug?"#F0A50020":"#12141C",
               color:genre===g.slug?"#F0A500":"#555D7A",
@@ -1071,21 +1086,24 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
               ].map(s=>(
                 <div key={s.label} style={{ textAlign:"center" }}>
                   <div style={{ fontSize:mobile?18:22,fontWeight:900,color:"#EAEBF2",lineHeight:1 }}>{s.value}</div>
-                  <div style={{ fontSize:8,fontWeight:700,letterSpacing:"0.08em",color:"#3A4060",marginTop:3 }}>{s.label}</div>
+                  <div style={{ fontSize:mobile?9:9,fontWeight:700,letterSpacing:"0.07em",color:"#3A4060",marginTop:4 }}>{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Sub-nav — horizontally scrollable */}
-          <div style={{ display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none",marginLeft:-4 }}>
+          <div style={{ display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none",marginLeft:-4,
+            WebkitOverflowScrolling:"touch" }}>
             {subTabs.map(([id,label])=>(
-              <button key={id} onClick={()=>setSubTab(id)} style={{ padding:mobile?"8px 12px":"10px 14px",
-                background:"none",border:"none",cursor:"pointer",fontSize:mobile?12:13,fontWeight:500,
-                whiteSpace:"nowrap",
-                color:subTab===id?"#EAEBF2":"#555D7A",
-                borderBottom:subTab===id?"2px solid #EAEBF2":"2px solid transparent",
-                marginBottom:-1 }}>{label}</button>
+              <button key={id} onClick={()=>setSubTab(id)}
+                style={{ padding:mobile?"10px 14px":"10px 14px",
+                  background:"none",border:"none",cursor:"pointer",
+                  fontSize:mobile?13:13,fontWeight:subTab===id?700:500,
+                  whiteSpace:"nowrap",WebkitTapHighlightColor:"transparent",
+                  color:subTab===id?"#EAEBF2":"#555D7A",
+                  borderBottom:subTab===id?"2px solid #EAEBF2":"2px solid transparent",
+                  marginBottom:-1,transition:"color 0.12s" }}>{label}</button>
             ))}
           </div>
         </div>
@@ -1959,7 +1977,7 @@ function BottomNav({ tab, setTab }) {
   return (
     <div style={{ position:"fixed",bottom:0,left:0,right:0,zIndex:100,
       background:"#0A0B0F",borderTop:"1px solid #12141C",
-      display:"flex",height:"calc(60px + env(safe-area-inset-bottom))",
+      display:"flex",height:"calc(64px + env(safe-area-inset-bottom))",
       paddingBottom:"env(safe-area-inset-bottom)" }}>
       {items.map(({ id, icon, label }) => {
         const active = tab===id;
@@ -2195,7 +2213,9 @@ export default function App() {
             )}
             <button onClick={()=>setShowSearch(s=>!s)}
               style={{ background:"none",border:"none",cursor:"pointer",
-                fontSize:18,color:"#555D7A",padding:"4px" }}>🔍</button>
+                fontSize:20,color:"#555D7A",padding:"10px 8px",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                WebkitTapHighlightColor:"transparent",minWidth:44,minHeight:44 }}>🔍</button>
           </>
         ) : (
           <div style={{ position:"relative",marginRight:12 }}>
@@ -2229,17 +2249,19 @@ export default function App() {
               cursor:"pointer",letterSpacing:"0.05em",flexShrink:0 }}>SIGN OUT</button>
         )}
 
-        {/* Mobile: sign out as small text */}
+        {/* Mobile: sign out */}
         {mobile && (
           <button onClick={handleLogout}
-            style={{ background:"none",border:"none",cursor:"pointer",
-              color:"#3A4060",fontSize:11,fontWeight:600,flexShrink:0,padding:"4px" }}>Out</button>
+            style={{ background:"none",border:"1px solid #1A1E2E",cursor:"pointer",
+              color:"#555D7A",fontSize:11,fontWeight:700,flexShrink:0,
+              padding:"6px 10px",borderRadius:6,letterSpacing:"0.04em",
+              WebkitTapHighlightColor:"transparent",minHeight:34 }}>OUT</button>
         )}
 
         {/* Theme toggle */}
         <button onClick={toggleTheme}
           style={{ background:"none",border:"none",cursor:"pointer",
-            fontSize:mobile?18:20,flexShrink:0,padding:mobile?"4px":"0 8px",
+            fontSize:mobile?20:20,flexShrink:0,padding:mobile?"10px 8px":"0 8px",
             display:"flex",alignItems:"center",justifyContent:"center",
             color:theme==="dark"?"#FBBF24":"#F59E0B",
             transition:"transform 0.15s",
@@ -2249,7 +2271,7 @@ export default function App() {
       </nav>
 
       {/* Page content: extra bottom padding on mobile for bottom nav */}
-      <div style={{ paddingBottom:mobile?70:0 }}>
+      <div style={{ paddingBottom:mobile?80:0 }}>
         {tab==="discover"&&<Discover userGames={userGames} onOpen={setGame} q={q} onQuickAdd={handleQuickAdd}/>}
         {tab==="mygames" &&<MyGames  games={loggedGames} userGames={userGames} onOpen={setGame}/>}
         {tab==="diary"   &&<Diary    games={loggedGames} userGames={userGames} onOpen={setGame}/>}
