@@ -1260,6 +1260,22 @@ function LandingPage({ onGoAuth }) {
 }
 
 // ─── Auth page ─────────────────────────────────────────────────────
+function Field({ label, type="text", value, onChange, error, placeholder }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:"block",fontSize:11,fontWeight:700,letterSpacing:"0.1em",
+        color:"#3A4060",textTransform:"uppercase",marginBottom:7 }}>{label}</label>
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ width:"100%",padding:"12px 14px",background:"#0A0B0F",
+          border:`1px solid ${error?"#EF444466":"#1A1E2E"}`,borderRadius:8,
+          color:"#EAEBF2",fontSize:14,outline:"none",boxSizing:"border-box",
+          WebkitAppearance:"none" }}/>
+      {error && <div style={{ fontSize:11,color:"#EF4444",marginTop:5 }}>{error}</div>}
+    </div>
+  );
+}
+
 function AuthPage({ initialMode="signin", onAuth, onBack }) {
   const [mode, setMode]         = useState(initialMode);
   const [username, setUsername] = useState("");
@@ -1338,18 +1354,18 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
   };
 
   const wrap = {
-    minHeight:"100vh", minHeight:"100dvh",
-    background:"#0A0B0F",
-    display:"flex", flexDirection:"column",
-    alignItems:"center", justifyContent:"center",
-    padding:"24px 16px",
-    fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",
+    minHeight: "100vh",
+    background: "#0A0B0F",
+    display: "flex",
+    flexDirection: "column",
+    padding: "40px 16px 60px",
+    fontFamily: "'Inter','SF Pro Display',system-ui,sans-serif",
   };
 
   // ── Verify screen ──────────────────────────────────────────────
   if (pendingEmail) return (
     <div style={wrap}>
-      <div style={{ width:"100%",maxWidth:400,background:"#12141C",
+      <div style={{ width:"100%",maxWidth:400,margin:"0 auto",background:"#12141C",
         border:"1px solid #1A1E2E",borderRadius:16,padding:"36px 24px",textAlign:"center" }}>
         <div style={{ fontSize:48,marginBottom:14 }}>📬</div>
         <div style={{ fontSize:20,fontWeight:800,color:"#EAEBF2",marginBottom:10 }}>Check your email</div>
@@ -1380,8 +1396,8 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
     <div style={wrap}>
       <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}`}</style>
 
-      {/* Back link — normal flow, not fixed */}
-      <div style={{ width:"100%",maxWidth:400,marginBottom:16 }}>
+      {/* Back link */}
+      <div style={{ width:"100%",maxWidth:400,margin:"0 auto",marginBottom:24 }}>
         <button onClick={onBack}
           style={{ background:"none",border:"none",cursor:"pointer",
             color:"#555D7A",fontSize:13,fontWeight:600,
@@ -1391,13 +1407,14 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
       </div>
 
       {/* Logo */}
-      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:32 }}>
+      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:28,
+        width:"100%",maxWidth:400,margin:"0 auto 28px" }}>
         <span style={{ fontSize:24 }}>🎮</span>
         <span style={{ fontWeight:900,fontSize:20,color:"#EAEBF2",letterSpacing:"-0.03em" }}>BACKLOG</span>
       </div>
 
       {/* Card */}
-      <div style={{ width:"100%",maxWidth:400,background:"#12141C",
+      <div style={{ width:"100%",maxWidth:400,margin:"0 auto",background:"#12141C",
         border:"1px solid #1A1E2E",borderRadius:16,padding:"28px 24px",
         animation:shake?"shake 0.4s ease":"none" }}>
         <div style={{ fontSize:20,fontWeight:800,color:"#EAEBF2",marginBottom:4 }}>
