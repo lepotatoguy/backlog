@@ -2026,6 +2026,14 @@ export default function App() {
     if (prof) {
       setProfileState({ name: prof.username, bio: prof.bio||"", isPublic: prof.is_public||false, username: prof.username });
       setFavorites(prof.favorites||[]);
+    } else {
+      // Profile row missing — create it from auth metadata
+      const { data: { user } } = await supabase.auth.getUser();
+      const fallbackUsername = user?.email?.split("@")[0] || `user_${userId.slice(0,8)}`;
+      await supabase.from("profiles").upsert({
+        id: userId, username: fallbackUsername, bio: "", favorites: [], is_public: false
+      }, { onConflict: "id" });
+      setProfileState({ name: fallbackUsername, bio: "", isPublic: false, username: fallbackUsername });
     }
   };
 
