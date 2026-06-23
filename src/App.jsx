@@ -501,7 +501,7 @@ function Discover({ userGames, onOpen, q, onQuickAdd }) {
       <div style={{ display:"grid",
         gridTemplateColumns:mobile?"repeat(2,1fr)":"repeat(auto-fill,minmax(150px,1fr))",
         gap:mobile?12:14 }}>
-        {games.map(game=>(
+        {games.filter(game=>!userGames[game.id]?.status).map(game=>(
           <Card key={game.id} game={game} ug={userGames[game.id]} onOpen={onOpen} onQuickAdd={onQuickAdd}/>
         ))}
         {loading && Array.from({length:mobile?6:12}).map((_,i)=><SkeletonCard key={`sk${i}`}/>)}
@@ -509,6 +509,13 @@ function Discover({ userGames, onOpen, q, onQuickAdd }) {
 
       {/* Intersection Observer Target for Infinite Scroll */}
       <div ref={observerTargetRef} style={{ height:mobile?60:40 }} />
+
+      {!loading && games.filter(game=>!userGames[game.id]?.status).length===0 && games.length>0 && (
+        <div style={{ textAlign:"center",padding:"60px 0",color:"var(--text-muted)" }}>
+          <div style={{ fontSize:36,marginBottom:10 }}>✅</div>
+          <div style={{ fontSize:14 }}>All games here are already in your library</div>
+        </div>
+      )}
 
       {!loading && games.length===0 && (
         <div style={{ textAlign:"center",padding:"60px 0",color:"var(--text-muted)" }}>
