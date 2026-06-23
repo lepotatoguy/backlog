@@ -54,6 +54,26 @@ function gameBg(title) {
 function gameAccent(title) { return `hsl(${strToHue(title)},65%,62%)`; }
 function toSlug(name) { return name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''); }
 
+function setMeta({ title, description, url }) {
+  document.title = title;
+  const upsert = (sel, attr, val) => {
+    let el = document.querySelector(sel);
+    if (!el) { el = document.createElement('meta'); document.head.appendChild(el); }
+    el.setAttribute(attr, val);
+  };
+  upsert('meta[name="description"]',         'content', description);
+  upsert('meta[property="og:title"]',        'content', title);
+  upsert('meta[property="og:description"]',  'content', description);
+  upsert('meta[property="og:url"]',          'content', url);
+  upsert('meta[name="twitter:title"]',       'content', title);
+  upsert('meta[name="twitter:description"]', 'content', description);
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute('href', url);
+}
+
+const DEFAULT_TITLE = "Backlog — Track Every Game You've Played";
+const DEFAULT_DESC  = "Log your game backlog, track what you're playing, rate and review games, and share your gaming profile with friends.";
+
 const STATUS_META = {
   "Playing":       { bg: "var(--success-bg)", text: "var(--success)", border: "var(--success-border)" },
   "Played":        { bg: "var(--primary-bg)", text: "var(--primary)", border: "var(--primary-border)" },
@@ -1799,6 +1819,10 @@ function PublicProfile({ username }) {
   const mobile = w < 640;
 
   useEffect(() => {
+    return () => setMeta({ title:DEFAULT_TITLE, description:DEFAULT_DESC, url:"https://lepotatoguy.github.io/backlog/" });
+  }, []);
+
+  useEffect(() => {
     async function load() {
       const { data: rows } = await supabase
         .from("profiles")
@@ -1810,14 +1834,26 @@ function PublicProfile({ username }) {
       setProf(p);
       const { data: gameRows } = await supabase
         .from("user_games").select("*").eq("user_id", p.id);
-      if (gameRows) {
-        setGames(gameRows.map(r => ({
-          game: { id:r.game_id, title:r.game_title||`Game #${r.game_id}`,
-            cover:r.game_cover||null, year:r.game_year||null, genre:r.game_genre||null },
-          status: r.status, rating: r.rating||0,
-          review: r.review||"", date: r.logged_at,
-        })));
-      }
+      const parsedGames = (gameRows||[]).map(r => ({
+        game: { id:r.game_id, title:r.game_title||`Game #${r.game_id}`,
+          cover:r.game_cover||null, year:r.game_year||null, genre:r.game_genre||null },
+        status: r.status, rating: r.rating||0,
+        review: r.review||"", date: r.logged_at,
+      }));
+      if (gameRows) setGames(parsedGames);
+      const playedCount = parsedGames.filter(g=>g.status==="Played").length;
+      const ratingVals  = parsedGames.filter(g=>g.rating>0).map(g=>g.rating);
+      const avg = ratingVals.length
+        ? (ratingVals.reduce((a,b)=>a+b,0)/ratingVals.length).toFixed(1) : null;
+      setMeta({
+        title: `${p.username} on Backlog`,
+        description: [
+          `${playedCount} game${playedCount!==1?'s':''} played`,
+          `${parsedGames.filter(g=>g.review).length} reviews`,
+          avg ? `avg rating ${avg}` : null,
+        ].filter(Boolean).join(' · '),
+        url: window.location.href,
+      });
       setStatus("ok");
     }
     load();
