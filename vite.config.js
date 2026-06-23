@@ -8,7 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      base: '/backlog/',
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       manifest: {
         name: 'Backlog',
         short_name: 'Backlog',
@@ -19,9 +22,9 @@ export default defineConfig({
         start_url: '/backlog/',
         scope: '/backlog/',
         icons: [
-  { src: '/backlog/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
-  { src: '/backlog/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
-]
+          { src: '/backlog/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: '/backlog/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
+        ]
       }
     })
   ],
