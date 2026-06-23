@@ -1,0 +1,111 @@
+:root {
+  --bg-primary: #0A0B0F;
+  --bg-secondary: #12141C;
+  --bg-tertiary: #181B25;
+  --border: #1A1E2E;
+  --border-hover: #2E3450;
+  --text-primary: #EAEBF2;
+  --text-secondary: #7B8099;
+  --text-tertiary: #555D7A;
+  --text-muted: #3A4060;
+  --accent: #F0A500;
+  --accent-hover: #E69400;
+  --accent-bg: #F0A50022;
+  --accent-border: #F0A50033;
+  --success: #4ADE80;
+  --success-bg: #0E2419;
+  --success-border: #14532D;
+  --primary: #60A5FA;
+  --primary-bg: #0D1F3C;
+  --primary-border: #1E3A5F;
+  --warning: #FBBF24;
+  --error: #EF4444;
+  --gradient-overlay: linear-gradient(to bottom, transparent 55%, #00000099 100%);
+}
+
+[data-theme='light'] {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --bg-tertiary: #F1F5F9;
+  --border: #E2E8F0;
+  --border-hover: #CBD5E1;
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-tertiary: #64748B;
+  --text-muted: #94A3B8;
+  --accent: #F59E0B;
+  --accent-hover: #D97706;
+  --accent-bg: #FEF3C7;
+  --accent-border: #FCD34D;
+  --success: #10B981;
+  --success-bg: #D1FAE5;
+  --success-border: #34D399;
+  --primary: #3B82F6;
+  --primary-bg: #DBEAFE;
+  --primary-border: #60A5FA;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --gradient-overlay: linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.3) 100%);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+input, textarea, select {
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent) !important;
+}
+
+textarea {
+  resize: vertical;
+}
+
+select option {
+  background: var(--bg-secondary);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Utility classes based on theme variables */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-muted { color: var(--text-muted); }
+.text-accent { color: var(--accent); }
+
+.bg-primary { background-color: var(--bg-primary); }
+.bg-secondary { background-color: var(--bg-secondary); }
+.bg-tertiary { background-color: var(--bg-tertiary); }
+
+.border-color { border-color: var(--border); }

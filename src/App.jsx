@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js"
 import { getPopular, searchGames, getDetail, fmtGame } from "./rawg.js"
+import { useTheme } from "./ThemeContext.jsx"
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 function useWindowWidth() {
@@ -51,11 +52,12 @@ function gameBg(title) {
   return `linear-gradient(160deg,hsl(${h1},50%,18%) 0%,hsl(${h2},60%,10%) 100%)`;
 }
 function gameAccent(title) { return `hsl(${strToHue(title)},65%,62%)`; }
+function toSlug(name) { return name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''); }
 
 const STATUS_META = {
-  "Playing":       { bg: "#0E2419", text: "#4ADE80", border: "#14532D" },
-  "Played":        { bg: "#0D1F3C", text: "#60A5FA", border: "#1E3A5F" },
-  "Want to Play":  { bg: "#1E0F3C", text: "#C084FC", border: "#3B1F6E" },
+  "Playing":       { bg: "var(--success-bg)", text: "var(--success)", border: "var(--success-border)" },
+  "Played":        { bg: "var(--primary-bg)", text: "var(--primary)", border: "var(--primary-border)" },
+  "Want to Play":  { bg: "var(--accent-bg)", text: "var(--accent)", border: "var(--accent-border)" },
 };
 function Badge({ status }) {
   if (!status) return null;
@@ -76,7 +78,7 @@ function Stars({ value=0, onChange, size=18, readonly }) {
           onMouseEnter={() => !readonly && setHov(i)}
           onMouseLeave={() => !readonly && setHov(0)}
           style={{ fontSize:size,cursor:readonly?"default":"pointer",
-            color:i<=disp?"#F0A500":"#232740",lineHeight:1,
+            color:i<=disp?"var(--accent)":"var(--border)",lineHeight:1,
             transition:"color 0.12s",userSelect:"none" }}>★</span>
       ))}
     </div>
@@ -97,48 +99,96 @@ function MiniCover({ title, size=52 }) {
   );
 }
 
-function Card({ game, ug, onOpen }) {
+function Card({ game, ug, onOpen, onQuickAdd }) {
   const [hov, setHov] = useState(false);
+  const [tapped, setTapped] = useState(false);
+  const w = useWindowWidth();
+  const mobile = w < 640;
   const accent = gameAccent(game.title);
 
+  const handleTap = () => {
+    if (mobile) {
+      setTapped(true);
+      setTimeout(() => setTapped(false), 150);
+    }
+    onOpen(game);
+  };
+
+  const metascoreColor = game.metascore >= 85 ? '#4ADE80' : game.metascore >= 70 ? '#FBBF24' : '#EF4444';
+
   return (
-    <div onClick={() => onOpen(game)}
+    <div onClick={handleTap}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ borderRadius:10,overflow:"hidden",cursor:"pointer",
-        background:"#12141C",border:`1px solid ${hov?accent+"40":"#1A1E2E"}`,
+      style={{ borderRadius:mobile?12:10,overflow:"hidden",cursor:"pointer",
+        background:"var(--bg-secondary)",border:`1px solid ${hov||tapped?accent+"40":"var(--border)"}`,
         transition:"transform 0.18s,box-shadow 0.18s,border-color 0.18s",
-        transform:hov?"translateY(-4px)":"none",
-        boxShadow:hov?"0 12px 32px #00000066":"none" }}>
+        transform:hov?"translateY(-4px)":(tapped?"scale(0.98)":"none"),
+        boxShadow:hov?"0 12px 32px var(--accent)20":"none",
+        ...(mobile && { minHeight:200 }) }}>
       <div style={{ aspectRatio:"3/4",position:"relative",overflow:"hidden",
         background:game.cover ? `url(${game.cover}) center/cover no-repeat` : gameBg(game.title) }}>
         <div style={{ position:"absolute",inset:0,
-          background:"linear-gradient(to bottom,transparent 55%,#00000099 100%)" }}/>
+          background:"var(--gradient-overlay)" }}/>
+        {game.metascore && !mobile && (
+          <div style={{ position:"absolute",top:8,left:8,zIndex:1,
+            padding:"4px 8px",borderRadius:6,background:"rgba(0,0,0,0.8)",
+            color:metascoreColor,fontSize:11,fontWeight:800 }}>
+            {game.metascore}
+          </div>
+        )}
         {ug?.status && (
           <div style={{ position:"absolute",bottom:8,left:8,zIndex:1 }}>
             <Badge status={ug.status}/>
           </div>
         )}
+        {/* Quick add button */}
+        {hov && onQuickAdd && !ug?.status && !mobile && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onQuickAdd(game); }}
+            style={{
+              position:"absolute",bottom:8,right:8,zIndex:2,
+              padding:"6px 10px",borderRadius:6,
+              background:"var(--accent)",color:"#000",
+              border:"none",fontWeight:700,fontSize:10,cursor:"pointer",
+              transition:"all 0.15s",WebkitTapHighlightColor:"transparent"
+            }}
+          >
+            + Add
+          </button>
+        )}
+        {/* Hover info overlay */}
+        {hov && !mobile && (
+          <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.7)",
+            display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:12 }}>
+            {game.platforms?.length > 0 && (
+              <div style={{ fontSize:9,color:"var(--text-secondary)",marginBottom:4,opacity:0.8 }}>
+                {game.platforms.slice(0,3).join(" · ")}{game.platforms.length>3?"...":""}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <div style={{ padding:"9px 11px 12px" }}>
-        <div style={{ fontWeight:700,fontSize:12,color:"#EAEBF2",lineHeight:1.3,
-          marginBottom:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+      <div style={{ padding:mobile?"12px 14px 14px":"9px 11px 12px" }}>
+        <div style={{ fontWeight:700,fontSize:mobile?13:12,color:"var(--text-primary)",lineHeight:1.3,
+          marginBottom:mobile?4:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
           {game.title}
         </div>
-        <div style={{ fontSize:11,color:"#555D7A",marginBottom:6 }}>
+        <div style={{ fontSize:mobile?12:11,color:"var(--text-tertiary)",marginBottom:mobile?8:6 }}>
           {[game.year,game.genre].filter(Boolean).join(" · ")}
         </div>
-        {ug?.rating>0 ? <Stars value={ug.rating} readonly size={12}/> :
-          <div style={{ fontSize:11,color:"#2E3450" }}>Not rated</div>}
+        {ug?.rating>0 ? <Stars value={ug.rating} readonly size={mobile?14:12}/> :
+          <div style={{ fontSize:mobile?12:11,color:"var(--text-muted)" }}>Not rated</div>}
       </div>
     </div>
   );
 }
 
-function Modal({ game, ug, onClose, onSave }) {
+function Modal({ game, ug, onClose, onSave, onDelete }) {
   const [status, setStatus] = useState(ug?.status??null);
   const [rating, setRating] = useState(ug?.rating??0);
   const [review, setReview] = useState(ug?.review??"");
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(!!ug?.status);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [detail, setDetail] = useState(null);
   const accent = gameAccent(game.title);
   const w = useWindowWidth();
@@ -164,7 +214,12 @@ function Modal({ game, ug, onClose, onSave }) {
       genre: g.genre, developer: g.developer,
     });
     setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
+  };
+
+  const handleDelete = () => {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    onDelete(game.id);
+    onClose();
   };
 
   const CoverPanel = () => (
@@ -261,13 +316,34 @@ function Modal({ game, ug, onClose, onSave }) {
                 color:"#C8CAD8",fontSize:13,lineHeight:1.6,resize:"vertical",
                 outline:"none",fontFamily:"inherit",boxSizing:"border-box" }}/>
           </div>
-          <button onClick={handleSave} style={{ width:mobile?"100%":"auto",
-            padding:"11px 22px",borderRadius:8,
-            background:saved?"#14532D":accent,color:saved?"#4ADE80":"#000",
-            border:"none",fontWeight:800,fontSize:13,cursor:"pointer",
-            transition:"all 0.18s",letterSpacing:"0.03em" }}>
-            {saved?"Saved ✓":"Save to library"}
-          </button>
+          <div style={{ display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" }}>
+            <button onClick={handleSave} style={{ flex:mobile?1:undefined,
+              padding:"11px 22px",borderRadius:8,
+              background:saved?"#14532D":accent,color:saved?"#4ADE80":"#000",
+              border:"none",fontWeight:800,fontSize:13,cursor:"pointer",
+              transition:"all 0.18s",letterSpacing:"0.03em" }}>
+              {saved?"Saved ✓":"Save to library"}
+            </button>
+            {saved && !confirmDelete && (
+              <button onClick={handleDelete} style={{ padding:"11px 16px",borderRadius:8,
+                background:"#1C0A0A",color:"#EF4444",
+                border:"1px solid #3D1515",fontWeight:700,fontSize:13,cursor:"pointer",
+                transition:"all 0.18s" }}>
+                Remove
+              </button>
+            )}
+            {saved && confirmDelete && (
+              <div style={{ display:"flex",gap:6,alignItems:"center" }}>
+                <span style={{ fontSize:12,color:"#EF4444",fontWeight:600 }}>Are you sure?</span>
+                <button onClick={handleDelete} style={{ padding:"8px 12px",borderRadius:7,
+                  background:"#EF4444",color:"#fff",border:"none",
+                  fontWeight:700,fontSize:12,cursor:"pointer" }}>Yes, remove</button>
+                <button onClick={()=>setConfirmDelete(false)} style={{ padding:"8px 12px",borderRadius:7,
+                  background:"#1A1E2E",color:"#7B8099",border:"1px solid #22263A",
+                  fontWeight:600,fontSize:12,cursor:"pointer" }}>Cancel</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -301,12 +377,14 @@ function SkeletonCard() {
   );
 }
 
-function Discover({ userGames, onOpen, q }) {
+function Discover({ userGames, onOpen, q, onQuickAdd }) {
   const [games, setGames]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [genre, setGenre]   = useState("");
   const [page, setPage]     = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const observerRef = useRef();
+  const observerTargetRef = useRef();
   const w = useWindowWidth();
   const mobile = w < 640;
 
@@ -340,21 +418,45 @@ function Discover({ userGames, onOpen, q }) {
     return () => { cancelled = true; };
   }, [debouncedQ, genre, page]);
 
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && hasMore) {
+          setPage(p => p + 1);
+        }
+      },
+      { threshold: 0.1, rootMargin: "200px" }
+    );
+
+    if (observerTargetRef.current) {
+      observer.observe(observerTargetRef.current);
+    }
+
+    return () => {
+      if (observerTargetRef.current) {
+        observer.unobserve(observerTargetRef.current);
+      }
+    };
+  }, [loading, hasMore]);
+
   return (
     <div style={{ padding:mobile?"12px 12px 80px":"20px 20px 48px" }}>
       <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
 
       {/* Genre chips */}
-      <div style={{ display:"flex",gap:6,marginBottom:16,overflowX:"auto",
+      <div style={{ display:"flex",gap:mobile?8:6,marginBottom:mobile?20:16,overflowX:"auto",
         scrollbarWidth:"none",paddingBottom:4,flexWrap:mobile?"nowrap":"wrap" }}>
         {GENRES.map(g=>(
           <button key={g.slug} onClick={()=>setGenre(g.slug)}
-            style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,
-              cursor:"pointer",flexShrink:0,
+            style={{ padding:mobile?"8px 16px":"4px 12px",borderRadius:mobile?24:20,fontSize:mobile?12:11,fontWeight:600,
+              cursor:"pointer",flexShrink:0,minHeight:mobile?40:32,
               border:`1px solid ${genre===g.slug?"#F0A500":"#1A1E2E"}`,
               background:genre===g.slug?"#F0A50020":"#12141C",
               color:genre===g.slug?"#F0A500":"#555D7A",
-              WebkitTapHighlightColor:"transparent" }}>
+              WebkitTapHighlightColor:"transparent",
+              transition:"all 0.15s",
+              ...(mobile && { active:{transform:"scale(0.97)" } }) }}>
             {g.label}
           </button>
         ))}
@@ -362,29 +464,27 @@ function Discover({ userGames, onOpen, q }) {
 
       {/* Grid */}
       <div style={{ display:"grid",
-        gridTemplateColumns:mobile?"repeat(auto-fill,minmax(110px,1fr))":"repeat(auto-fill,minmax(150px,1fr))",
-        gap:mobile?10:14 }}>
+        gridTemplateColumns:mobile?"repeat(2,1fr)":"repeat(auto-fill,minmax(150px,1fr))",
+        gap:mobile?12:14 }}>
         {games.map(game=>(
-          <Card key={game.id} game={game} ug={userGames[game.id]} onOpen={onOpen}/>
+          <Card key={game.id} game={game} ug={userGames[game.id]} onOpen={onOpen} onQuickAdd={onQuickAdd}/>
         ))}
-        {loading && Array.from({length:12}).map((_,i)=><SkeletonCard key={`sk${i}`}/>)}
+        {loading && Array.from({length:mobile?6:12}).map((_,i)=><SkeletonCard key={`sk${i}`}/>)}
       </div>
 
+      {/* Intersection Observer Target for Infinite Scroll */}
+      <div ref={observerTargetRef} style={{ height:mobile?60:40 }} />
+
       {!loading && games.length===0 && (
-        <div style={{ textAlign:"center",padding:"60px 0",color:"#2E3450" }}>
+        <div style={{ textAlign:"center",padding:"60px 0",color:"var(--text-muted)" }}>
           <div style={{ fontSize:36,marginBottom:10 }}>🔎</div>
           <div style={{ fontSize:14 }}>No games found</div>
         </div>
       )}
 
-      {!loading && hasMore && games.length>0 && (
-        <div style={{ textAlign:"center",marginTop:28 }}>
-          <button onClick={()=>setPage(p=>p+1)}
-            style={{ padding:"10px 28px",borderRadius:8,background:"#12141C",
-              border:"1px solid #1A1E2E",color:"#9CA3AF",fontSize:13,
-              fontWeight:600,cursor:"pointer",WebkitTapHighlightColor:"transparent" }}>
-            Load more
-          </button>
+      {!loading && !hasMore && games.length>0 && (
+        <div style={{ textAlign:"center",padding:mobile?24:32,color:"var(--text-muted)",fontSize:mobile?13:14 }}>
+          You've reached the end of the list
         </div>
       )}
     </div>
@@ -596,17 +696,29 @@ function ProfileOverview({ games, userGames, onOpen, favorites, setFavorites }) 
         {recentActivity.length===0 ? (
           <div style={{ fontSize:13,color:"#3A4060",fontStyle:"italic" }}>No activity yet</div>
         ) : (
-          <div style={{ display:"flex",gap:10,flexWrap:"wrap" }}>
-            {recentActivity.map(({ game, rating, status })=>(
+          <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+            {recentActivity.map(({ game, rating, status, date })=>(
               <div key={game.id} onClick={()=>onOpen(game)}
-                style={{ position:"relative",cursor:"pointer" }}>
-                <MiniCover title={game.title} size={60}/>
-                {rating>0 && (
-                  <div style={{ position:"absolute",bottom:-4,left:0,right:0,textAlign:"center" }}>
-                    <span style={{ fontSize:9,color:"#F0A500",background:"#0A0B0F",
-                      padding:"0 3px",borderRadius:3 }}>{"★".repeat(rating)}</span>
-                  </div>
-                )}
+                style={{ display:"flex",gap:12,alignItems:"center",padding:"10px 12px",
+                  background:"var(--bg-secondary)",borderRadius:10,
+                  border:"1px solid var(--border)",cursor:"pointer" }}>
+                <div style={{ width:44,height:60,borderRadius:6,flexShrink:0,overflow:"hidden",
+                  background:game.cover
+                    ? `url(${game.cover}) center/cover no-repeat`
+                    : gameBg(game.title) }}/>
+                <div style={{ flex:1,minWidth:0 }}>
+                  <div style={{ fontWeight:700,fontSize:13,color:"var(--text-primary)",
+                    whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{game.title}</div>
+                  {date && (
+                    <div style={{ fontSize:11,color:"#555D7A",marginTop:3 }}>
+                      {new Date(date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0 }}>
+                  <Badge status={status}/>
+                  {rating>0 && <Stars value={rating} readonly size={11}/>}
+                </div>
               </div>
             ))}
           </div>
@@ -834,8 +946,11 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(profile.name);
   const [draftBio, setDraftBio] = useState(profile.bio);
+  const [draftPublic, setDraftPublic] = useState(profile.isPublic||false);
+  const [copied, setCopied] = useState(false);
   const w = useWindowWidth();
   const mobile = w < 640;
+  const profileUrl = `${window.location.origin}/backlog/#/u/${profile.username||toSlug(profile.name)}`;
 
   const subTabs = [
     ["profile","Profile"],["activity","Activity"],
@@ -855,8 +970,14 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
   }),[games,userGames]);
 
   const saveProfile = () => {
-    setProfile({ name:draftName, bio:draftBio });
+    setProfile({ name:draftName, bio:draftBio, isPublic:draftPublic });
     setEditing(false);
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(profileUrl);
+    setCopied(true);
+    setTimeout(()=>setCopied(false), 2000);
   };
 
   return (
@@ -886,6 +1007,17 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
                       style={{ background:"#181B25",border:"1px solid #22263A",borderRadius:6,
                         color:"#EAEBF2",fontSize:13,padding:"4px 10px",
                         outline:"none",width:"100%",boxSizing:"border-box" }}/>
+                    {/* Privacy toggle */}
+                    <div style={{ display:"flex",alignItems:"center",gap:10,marginTop:10,marginBottom:2 }}>
+                      <span style={{ fontSize:11,color:"#555D7A",fontWeight:600 }}>Profile visibility:</span>
+                      <button onClick={()=>setDraftPublic(p=>!p)}
+                        style={{ padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:700,cursor:"pointer",
+                          border:`1px solid ${draftPublic?"#22C55E":"#2E3450"}`,
+                          background:draftPublic?"#14532D":"#181B25",
+                          color:draftPublic?"#4ADE80":"#555D7A" }}>
+                        {draftPublic?"Public":"Private"}
+                      </button>
+                    </div>
                     <div style={{ display:"flex",gap:8,marginTop:8 }}>
                       <button onClick={saveProfile} style={{ padding:"5px 14px",borderRadius:6,
                         background:"#F0A500",color:"#000",border:"none",
@@ -899,11 +1031,27 @@ function Profile({ games, userGames, onOpen, favorites, setFavorites, profile, s
                   <div>
                     <div style={{ fontSize:mobile?16:20,fontWeight:800,color:"#EAEBF2",marginBottom:2 }}>{profile.name}</div>
                     {profile.bio && <div style={{ fontSize:12,color:"#7B8099",marginBottom:6 }}>{profile.bio}</div>}
-                    <button onClick={()=>setEditing(true)} style={{ fontSize:10,fontWeight:700,
-                      padding:"3px 10px",borderRadius:5,background:"none",
-                      border:"1px solid #2E3450",color:"#555D7A",cursor:"pointer",letterSpacing:"0.05em" }}>
-                      EDIT PROFILE
-                    </button>
+                    <div style={{ display:"flex",gap:6,flexWrap:"wrap",alignItems:"center" }}>
+                      <button onClick={()=>{ setDraftName(profile.name); setDraftBio(profile.bio); setDraftPublic(profile.isPublic||false); setEditing(true); }}
+                        style={{ fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:5,background:"none",
+                          border:"1px solid #2E3450",color:"#555D7A",cursor:"pointer",letterSpacing:"0.05em" }}>
+                        EDIT PROFILE
+                      </button>
+                      <span style={{ fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:5,
+                        border:`1px solid ${profile.isPublic?"#22C55E":"#2E3450"}`,
+                        color:profile.isPublic?"#4ADE80":"#3A4060",letterSpacing:"0.05em" }}>
+                        {profile.isPublic?"PUBLIC":"PRIVATE"}
+                      </span>
+                      {profile.isPublic && (
+                        <button onClick={copyLink}
+                          style={{ fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:5,
+                            background:copied?"#14532D":"none",
+                            border:`1px solid ${copied?"#22C55E":"#2E3450"}`,
+                            color:copied?"#4ADE80":"#555D7A",cursor:"pointer",letterSpacing:"0.05em" }}>
+                          {copied?"COPIED!":"SHARE PROFILE"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1151,8 +1299,6 @@ function LandingPage({ onGoAuth }) {
         <div style={{ display:"flex",gap:mobile?8:10,alignItems:"center" }}>
           <button onClick={()=>onGoAuth("signin")} className="lnav-link"
             style={{ fontSize:mobile?12:13 }}>Sign in</button>
-          {!mobile && <span style={{ color:"#2E3450",fontSize:13 }}>·</span>}
-          {!mobile && <button onClick={()=>onGoAuth("signup")} className="lnav-link">Create account</button>}
           <button onClick={()=>onGoAuth("signup")}
             style={{ padding:mobile?"6px 12px":"7px 16px",borderRadius:7,
               background:"#F0A500",border:"none",color:"#000",fontSize:mobile?12:13,
@@ -1492,7 +1638,7 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
           setErrors({ username: profErr.message.includes("unique") ? "Username already taken" : profErr.message });
           triggerShake(); await supabase.auth.signOut(); return;
         }
-        if (data.session) { onAuth(data.session, { name: username, bio: "" }); }
+        if (data.session) { onAuth(data.session, { name: username, bio: "", username }); }
         else { setPendingEmail(email); setResendCooldown(60); }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -1504,7 +1650,7 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
           return;
         }
         const { data: prof } = await supabase.from("profiles").select("*").eq("id",data.user.id).single();
-        onAuth(data.session, { name: prof?.username ?? email.split("@")[0], bio: prof?.bio ?? "" });
+        onAuth(data.session, { name: prof?.username ?? email.split("@")[0], bio: prof?.bio ?? "", username: prof?.username ?? email.split("@")[0] });
       }
     } finally { setBusy(false); }
   };
@@ -1626,6 +1772,182 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
     </div>
   );
 }
+// ─── Public profile (shareable read-only view) ─────────────────────
+function PublicProfile({ username }) {
+  const [prof, setProf]     = useState(null);
+  const [games, setGames]   = useState([]);
+  const [status, setStatus] = useState("loading"); // loading | ok | private | notfound
+  const w = useWindowWidth();
+  const mobile = w < 640;
+
+  useEffect(() => {
+    async function load() {
+      const { data: rows } = await supabase
+        .from("profiles")
+        .select("*")
+        .ilike("username", decodeURIComponent(username));
+      const p = rows?.[0];
+      if (!p) { setStatus("notfound"); return; }
+      if (!p.is_public) { setStatus("private"); return; }
+      setProf(p);
+      const { data: gameRows } = await supabase
+        .from("user_games").select("*").eq("user_id", p.id);
+      if (gameRows) {
+        setGames(gameRows.map(r => ({
+          game: { id:r.game_id, title:r.game_title||`Game #${r.game_id}`,
+            cover:r.game_cover||null, year:r.game_year||null, genre:r.game_genre||null },
+          status: r.status, rating: r.rating||0,
+          review: r.review||"", date: r.logged_at,
+        })));
+      }
+      setStatus("ok");
+    }
+    load();
+  }, [username]);
+
+  const shell = (icon, title, sub) => (
+    <div style={{ minHeight:"100vh",background:"#0A0B0F",display:"flex",flexDirection:"column",
+      alignItems:"center",justifyContent:"center",gap:10,
+      fontFamily:"'Inter',system-ui,sans-serif",color:"#555D7A" }}>
+      <span style={{ fontSize:48 }}>{icon}</span>
+      <div style={{ fontSize:18,fontWeight:700,color:"#EAEBF2" }}>{title}</div>
+      <div style={{ fontSize:13 }}>{sub}</div>
+      <a href="/backlog/" style={{ marginTop:8,padding:"8px 20px",borderRadius:8,
+        background:"#F0A500",color:"#000",fontWeight:700,fontSize:13,textDecoration:"none" }}>
+        Go to Backlog
+      </a>
+    </div>
+  );
+
+  if (status==="loading") return shell("🎮","Loading…","");
+  if (status==="notfound") return shell("🕹️","Profile not found","No user with that username exists");
+  if (status==="private") return shell("🔒","Private profile","This user hasn't made their profile public");
+
+  const played    = games.filter(g=>g.status==="Played");
+  const wantTo    = games.filter(g=>g.status==="Want to Play");
+  const withRating= games.filter(g=>g.rating>0);
+  const avgRating = withRating.length
+    ? (withRating.reduce((s,g)=>s+g.rating,0)/withRating.length).toFixed(1) : null;
+  const reviews   = games.filter(g=>g.review);
+  const favorites = prof.favorites||[];
+  const recent    = [...games].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,20);
+
+  return (
+    <div style={{ minHeight:"100vh",background:"#0A0B0F",
+      fontFamily:"'Inter',system-ui,sans-serif",color:"#EAEBF2" }}>
+
+      {/* Nav bar */}
+      <nav style={{ borderBottom:"1px solid #1A1E2E",padding:"0 20px",height:54,
+        display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,
+        background:"#0A0B0F",zIndex:100 }}>
+        <a href="/backlog/" style={{ display:"flex",alignItems:"center",gap:8,
+          textDecoration:"none",color:"inherit" }}>
+          <span style={{ fontSize:20 }}>🎮</span>
+          <span style={{ fontWeight:900,fontSize:15,letterSpacing:"-0.03em" }}>BACKLOG</span>
+        </a>
+        <div style={{ flex:1 }}/>
+        <a href="/backlog/" style={{ fontSize:12,color:"#555D7A",textDecoration:"none",
+          fontWeight:600,padding:"6px 14px",borderRadius:7,border:"1px solid #1A1E2E" }}>
+          Sign in
+        </a>
+      </nav>
+
+      {/* Profile header */}
+      <div style={{ background:"#0D0F17",borderBottom:"1px solid #1A1E2E",
+        padding:mobile?"20px 16px 24px":"28px 20px 28px" }}>
+        <div style={{ maxWidth:760,margin:"0 auto" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:16,marginBottom:20 }}>
+            <div style={{ width:mobile?56:72,height:mobile?56:72,borderRadius:"50%",flexShrink:0,
+              background:"linear-gradient(135deg,#F0A500,#7C3AED)",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:mobile?20:28,fontWeight:900,color:"#fff" }}>
+              {prof.username[0].toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontSize:mobile?18:22,fontWeight:800,color:"#EAEBF2",marginBottom:4 }}>
+                {prof.username}
+              </div>
+              {prof.bio && <div style={{ fontSize:13,color:"#7B8099" }}>{prof.bio}</div>}
+            </div>
+          </div>
+          <div style={{ display:"flex",gap:mobile?16:28,flexWrap:"wrap" }}>
+            {[
+              { label:"PLAYED",      value:played.length },
+              { label:"BACKLOG",     value:wantTo.length },
+              { label:"REVIEWS",     value:reviews.length },
+              { label:"AVG RATING",  value:avgRating?`★ ${avgRating}`:"—" },
+            ].map(s=>(
+              <div key={s.label} style={{ textAlign:"center" }}>
+                <div style={{ fontSize:mobile?18:22,fontWeight:900,color:"#EAEBF2",lineHeight:1 }}>{s.value}</div>
+                <div style={{ fontSize:8,fontWeight:700,letterSpacing:"0.08em",color:"#3A4060",marginTop:3 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ maxWidth:760,margin:"0 auto",padding:mobile?"20px 16px 60px":"28px 20px 60px" }}>
+
+        {/* Favorite games */}
+        {favorites.length>0 && (
+          <div style={{ marginBottom:32 }}>
+            <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:"#3A4060",
+              textTransform:"uppercase",marginBottom:14 }}>Favorite Games</div>
+            <div style={{ display:"flex",gap:12,flexWrap:"wrap" }}>
+              {favorites.map(id=>{
+                const entry = games.find(x=>x.game.id===id);
+                const game  = entry?.game;
+                if (!game) return null;
+                return (
+                  <div key={id} style={{ width:72,height:97,borderRadius:6,flexShrink:0,
+                    overflow:"hidden",
+                    background:game.cover?`url(${game.cover}) center/cover no-repeat`:gameBg(game.title) }}/>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Game log */}
+        <div>
+          <div style={{ fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:"#3A4060",
+            textTransform:"uppercase",marginBottom:14 }}>
+            Games ({games.length})
+          </div>
+          {games.length===0 ? (
+            <div style={{ fontSize:13,color:"#3A4060",fontStyle:"italic" }}>No games logged yet</div>
+          ) : (
+            <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+              {recent.map(({ game, rating, status:s, date })=>(
+                <div key={game.id}
+                  style={{ display:"flex",gap:12,alignItems:"center",padding:"10px 12px",
+                    background:"#12141C",borderRadius:10,border:"1px solid #1A1E2E" }}>
+                  <div style={{ width:44,height:60,borderRadius:6,flexShrink:0,overflow:"hidden",
+                    background:game.cover?`url(${game.cover}) center/cover no-repeat`:gameBg(game.title) }}/>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontWeight:700,fontSize:13,color:"#EAEBF2",
+                      whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{game.title}</div>
+                    {date && (
+                      <div style={{ fontSize:11,color:"#555D7A",marginTop:3 }}>
+                        {new Date(date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0 }}>
+                    <Badge status={s}/>
+                    {rating>0 && <Stars value={rating} readonly size={11}/>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Root ──────────────────────────────────────────────────────────
 function BottomNav({ tab, setTab }) {
   const items = [
@@ -1637,22 +1959,34 @@ function BottomNav({ tab, setTab }) {
   return (
     <div style={{ position:"fixed",bottom:0,left:0,right:0,zIndex:100,
       background:"#0A0B0F",borderTop:"1px solid #12141C",
-      display:"flex",height:62,paddingBottom:"env(safe-area-inset-bottom)" }}>
-      {items.map(({ id, icon, label }) => (
-        <button key={id} onClick={() => setTab(id)}
-          style={{ flex:1,display:"flex",flexDirection:"column",
-            alignItems:"center",justifyContent:"center",gap:3,
-            background:"none",border:"none",cursor:"pointer",
-            color:tab===id?"#F0A500":"#555D7A",transition:"color 0.12s" }}>
-          <span style={{ fontSize:22 }}>{icon}</span>
-          <span style={{ fontSize:9,fontWeight:700,letterSpacing:"0.04em" }}>{label.toUpperCase()}</span>
-        </button>
-      ))}
+      display:"flex",height:"calc(60px + env(safe-area-inset-bottom))",
+      paddingBottom:"env(safe-area-inset-bottom)" }}>
+      {items.map(({ id, icon, label }) => {
+        const active = tab===id;
+        return (
+          <button key={id} onClick={() => setTab(id)}
+            style={{ flex:1,display:"flex",flexDirection:"column",
+              alignItems:"center",justifyContent:"center",gap:2,
+              background:"none",border:"none",cursor:"pointer",
+              color:active?"#F0A500":"#555D7A",transition:"all 0.15s",
+              padding:"8px 0",minHeight:44,WebkitTapHighlightColor:"transparent",
+              ...(active && { transform:"translateY(-2px)" }) }}>
+            <span style={{ fontSize:24,transition:"transform 0.15s",
+              ...(active && { transform:"scale(1.1)" }) }}>{icon}</span>
+            <span style={{ fontSize:10,fontWeight:700,letterSpacing:"0.05em" }}>{label.toUpperCase()}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 export default function App() {
+  const publicUsername = useMemo(() => {
+    const hash = window.location.hash;
+    return hash.startsWith('#/u/') ? hash.slice(4) : null;
+  }, []);
+
   const [view, setView]         = useState("loading");
   const [authMode, setAuthMode] = useState("signup");
   const [session, setSession]   = useState(null);
@@ -1662,7 +1996,8 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [userGames, setUserGames] = useState({});
   const [favorites, setFavorites] = useState([]);
-  const [profile,   setProfileState] = useState({ name:"Player One", bio:"" });
+  const [profile,   setProfileState] = useState({ name:"Player One", bio:"", isPublic:false, username:"" });
+  const { theme, toggleTheme } = useTheme();
   const w = useWindowWidth();
   const mobile = w < 640;
 
@@ -1689,12 +2024,13 @@ export default function App() {
     ]);
     if (games) setUserGames(rowsToMap(games));
     if (prof) {
-      setProfileState({ name: prof.username, bio: prof.bio||"" });
+      setProfileState({ name: prof.username, bio: prof.bio||"", isPublic: prof.is_public||false, username: prof.username });
       setFavorites(prof.favorites||[]);
     }
   };
 
   useEffect(() => {
+    if (publicUsername) return;
     supabase.auth.getSession().then(({ data:{ session:s } }) => {
       if (s) { setSession(s); loadUserData(s.user.id).then(() => setView("app")); }
       else setView("landing");
@@ -1703,7 +2039,7 @@ export default function App() {
       if (event==="SIGNED_OUT") {
         setSession(null); setView("landing");
         setUserGames({}); setFavorites([]);
-        setProfileState({ name:"Player One", bio:"" });
+        setProfileState({ name:"Player One", bio:"", isPublic:false, username:"" });
       }
     });
     return () => subscription.unsubscribe();
@@ -1727,6 +2063,33 @@ export default function App() {
     }, { onConflict:"user_id,game_id" });
   }, [session]);
 
+  const handleDelete = useCallback(async (id) => {
+    setUserGames(prev => { const next = { ...prev }; delete next[id]; return next; });
+    setFavorites(prev => prev.filter(f => f !== id));
+    if (!session) return;
+    await supabase.from("user_games").delete().match({ user_id: session.user.id, game_id: id });
+  }, [session]);
+
+  const handleQuickAdd = useCallback(async (game) => {
+    if (!session) {
+      setAuthMode("signup");
+      setView("auth");
+      return;
+    }
+    const data = {
+      status: "Want to Play",
+      rating: 0,
+      review: "",
+      date: new Date().toISOString(),
+      title: game.title,
+      cover: game.cover,
+      year: game.year,
+      genre: game.genre,
+      developer: game.developer,
+    };
+    await handleSave(game.id, data);
+  }, [session, handleSave]);
+
   const handleSetFavorites = useCallback(async (favs) => {
     setFavorites(favs);
     if (!session) return;
@@ -1734,9 +2097,12 @@ export default function App() {
   }, [session]);
 
   const handleSetProfile = useCallback(async (prof) => {
-    setProfileState(prof);
+    setProfileState(prev => ({ ...prev, ...prof }));
     if (!session) return;
-    await supabase.from("profiles").update({ username: prof.name, bio: prof.bio }).eq("id", session.user.id);
+    await supabase.from("profiles").update({
+      bio: prof.bio,
+      is_public: prof.isPublic||false,
+    }).eq("id", session.user.id);
   }, [session]);
 
   const handleAuth = (s, prof) => {
@@ -1762,6 +2128,8 @@ export default function App() {
     [userGames]
   );
 
+  if (publicUsername) return <PublicProfile username={publicUsername}/>;
+
   if (view==="loading") return (
     <div style={{ minHeight:"100vh",background:"#0A0B0F",display:"flex",
       alignItems:"center",justifyContent:"center",gap:12,
@@ -1774,19 +2142,14 @@ export default function App() {
   if (view==="auth")    return <AuthPage initialMode={authMode} onAuth={handleAuth} onBack={()=>setView("landing")}/>;
 
   return (
-    <div style={{ minHeight:"100vh",background:"#0A0B0F",
-      fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",color:"#EAEBF2" }}>
+    <div style={{ minHeight:"100vh",backgroundColor:"var(--bg-primary)",
+      fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",color:"var(--text-primary)" }}>
       <style>{`
-        *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:5px;height:5px}
-        ::-webkit-scrollbar-track{background:#0A0B0F}
-        ::-webkit-scrollbar-thumb{background:#22263A;border-radius:3px}
-        textarea:focus,input:focus{border-color:#F0A50055!important}
-        select option{background:#181B25}
+        textarea:focus,input:focus{border-color:var(--accent)55!important}
       `}</style>
 
       {/* Top nav */}
-      <nav style={{ background:"#0A0B0F",borderBottom:"1px solid #12141C",
+      <nav style={{ background:"var(--bg-primary)",borderBottom:"1px solid var(--border)",
         display:"flex",alignItems:"center",padding:"0 16px",
         position:"sticky",top:0,zIndex:100,height:54,gap:8 }}>
 
@@ -1794,7 +2157,7 @@ export default function App() {
         <div onClick={()=>setTab("discover")} style={{ display:"flex",alignItems:"center",
           gap:8,cursor:"pointer",userSelect:"none",marginRight:mobile?0:20 }}>
           <span style={{ fontSize:20 }}>🎮</span>
-          {!mobile && <span style={{ fontWeight:900,fontSize:15,color:"#EAEBF2",letterSpacing:"-0.03em" }}>BACKLOG</span>}
+          {!mobile && <span style={{ fontWeight:900,fontSize:15,color:"var(--text-primary)",letterSpacing:"-0.03em" }}>BACKLOG</span>}
         </div>
 
         {/* Desktop tab links */}
@@ -1803,8 +2166,8 @@ export default function App() {
             {[["discover","Discover"],["mygames","My Games"],["diary","Diary"],["profile","Profile"]].map(([id,label])=>(
               <button key={id} onClick={()=>setTab(id)} style={{ padding:"6px 12px",
                 background:"none",border:"none",cursor:"pointer",fontSize:13,
-                fontWeight:tab===id?700:400,color:tab===id?"#F0A500":"#555D7A",
-                borderBottom:tab===id?"2px solid #F0A500":"2px solid transparent",
+                fontWeight:tab===id?700:400,color:tab===id?"var(--accent)":"var(--text-tertiary)",
+                borderBottom:tab===id?"2px solid var(--accent)":"2px solid transparent",
                 marginBottom:-1,transition:"color 0.12s" }}>{label}</button>
             ))}
           </div>
@@ -1815,7 +2178,7 @@ export default function App() {
           <>
             <div style={{ flex:1 }}/>
             {showSearch && (
-              <input value={q} onChange={e=>setQ(e.target.value)}
+              <input value={q} onChange={e=>{ setQ(e.target.value); if(e.target.value) setTab("discover"); }}
                 autoFocus onBlur={()=>{ if(!q) setShowSearch(false); }}
                 placeholder="Search games..."
                 style={{ flex:1,padding:"6px 11px",background:"#181B25",
@@ -1829,7 +2192,7 @@ export default function App() {
         ) : (
           <div style={{ position:"relative",marginRight:12 }}>
             <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#3A4060",fontSize:13 }}>🔍</span>
-            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search..."
+            <input value={q} onChange={e=>{ setQ(e.target.value); if(e.target.value) setTab("discover"); }} placeholder="Search..."
               style={{ padding:"6px 11px 6px 30px",background:"#181B25",
                 border:"1px solid #22263A",borderRadius:7,color:"#EAEBF2",fontSize:12,outline:"none",width:180 }}/>
           </div>
@@ -1864,11 +2227,22 @@ export default function App() {
             style={{ background:"none",border:"none",cursor:"pointer",
               color:"#3A4060",fontSize:11,fontWeight:600,flexShrink:0,padding:"4px" }}>Out</button>
         )}
+
+        {/* Theme toggle */}
+        <button onClick={toggleTheme}
+          style={{ background:"none",border:"none",cursor:"pointer",
+            fontSize:mobile?18:20,flexShrink:0,padding:mobile?"4px":"0 8px",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            color:theme==="dark"?"#FBBF24":"#F59E0B",
+            transition:"transform 0.15s",
+            WebkitTapHighlightColor:"transparent" }}>
+          {theme==="dark"?"☀️":"🌙"}
+        </button>
       </nav>
 
-      {/* Page content — extra bottom padding on mobile for bottom nav */}
+      {/* Page content: extra bottom padding on mobile for bottom nav */}
       <div style={{ paddingBottom:mobile?70:0 }}>
-        {tab==="discover"&&<Discover userGames={userGames} onOpen={setGame} q={q}/>}
+        {tab==="discover"&&<Discover userGames={userGames} onOpen={setGame} q={q} onQuickAdd={handleQuickAdd}/>}
         {tab==="mygames" &&<MyGames  games={loggedGames} userGames={userGames} onOpen={setGame}/>}
         {tab==="diary"   &&<Diary    games={loggedGames} userGames={userGames} onOpen={setGame}/>}
         {tab==="profile" &&<Profile  games={loggedGames} userGames={userGames} onOpen={setGame}
@@ -1879,7 +2253,7 @@ export default function App() {
       {/* Mobile bottom nav */}
       {mobile && <BottomNav tab={tab} setTab={setTab}/>}
 
-      {game&&<Modal game={game} ug={userGames[game.id]} onClose={()=>setGame(null)} onSave={handleSave}/>}
+      {game&&<Modal game={game} ug={userGames[game.id]} onClose={()=>setGame(null)} onSave={handleSave} onDelete={handleDelete}/>}
     </div>
   );
 }

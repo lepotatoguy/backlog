@@ -16,14 +16,16 @@ export function fmtGame(g) {
     year:        g.released          ? +g.released.slice(0, 4) : null,
     genre:       g.genres?.[0]?.name ?? null,
     rating:      +(g.rating          ?? 0).toFixed(1),
+    metascore:   g.metacritic        || null,
     developer:   g.developers?.[0]?.name ?? null,
     description: g.description_raw   ? g.description_raw.slice(0, 500) : null,
+    platforms:   g.platforms?.map(p => p.platform.name) ?? [],
   };
 }
 
 export const getPopular = (page = 1, genreSlug = '') =>
   req(`/games?page=${page}&page_size=24&ordering=-added&metacritic=70,100${genreSlug ? `&genres=${genreSlug}` : ''}`)
-    .then(d => (d.results ?? []).map(fmtGame));
+    .then(d => (d.results ?? []).map(g => fmtGame({...g, genres: g.genres || [], platforms: g.platforms || []})));
 
 export const searchGames = (q, page = 1) =>
   req(`/games?search=${encodeURIComponent(q)}&page=${page}&page_size=24&search_precise=true`)
