@@ -1078,35 +1078,35 @@ function LandingPage({ onGoAuth }) {
     let cancelled = false;
     async function load() {
       try {
-        // 1. Check Supabase cache first
-        const { data: cached } = await supabase
-          .from('games_cache').select('*')
-          .order('updated_at', { ascending:false }).limit(48);
-
-        if (cached?.length >= 12) {
-          const ageMs = Date.now() - new Date(cached[0].updated_at).getTime();
-          if (ageMs < 24 * 3600 * 1000) {
-            if (!cancelled) setLiveGames(cached.map(g=>({
-              id:g.id, title:g.title, cover:g.cover_url, year:g.year, genre:g.genre
-            })));
-            return;
-          }
-        }
-
-        // 2. Fetch from RAWG
+        // 1. Always try RAWG first — real fresh covers
         const [p1, p2] = await Promise.all([getPopular(1), getPopular(2)]);
         const games = [...p1, ...p2].slice(0, 48);
         if (!cancelled) setLiveGames(games);
 
-        // 3. Update cache (fire and forget)
+        // 2. Save to cache in background (used when RAWG rate-limits)
         supabase.from('games_cache').upsert(
-          games.map(g=>({ id:g.id, title:g.title, cover_url:g.cover,
-            year:g.year, genre:g.genre, updated_at:new Date().toISOString() })),
+          games.map(g=>({
+            id: g.id, title: g.title, cover_url: g.cover,
+            year: g.year, genre: g.genre,
+            updated_at: new Date().toISOString()
+          })),
           { onConflict:'id' }
         ).catch(()=>{});
 
       } catch {
-        if (!cancelled) setLiveGames([]); // triggers static fallback
+        // RAWG failed (rate limit / network) — try Supabase cache
+        try {
+          const { data: cached } = await supabase
+            .from('games_cache').select('*').limit(48);
+          if (!cancelled) {
+            setLiveGames(cached?.length > 0
+              ? cached.map(g=>({ id:g.id, title:g.title, cover:g.cover_url, year:g.year, genre:g.genre }))
+              : [] // triggers static gradient fallback
+            );
+          }
+        } catch {
+          if (!cancelled) setLiveGames([]); // static fallback
+        }
       }
     }
     load();
