@@ -1011,16 +1011,21 @@ const SAMPLE_STORIES = [
 
 function PosterCard({ game, onGoAuth }) {
   const [hov, setHov] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
   const accent = gameAccent(game.title);
+  const showImg = game.cover && !imgErr;
   return (
     <div onClick={()=>onGoAuth("signup")} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      title={game.title}
-      style={{ width:88,flexShrink:0,cursor:"pointer" }}>
+      title={game.title} style={{ width:88,flexShrink:0,cursor:"pointer" }}>
       <div style={{ width:88,height:118,borderRadius:6,overflow:"hidden",
-        background:gameBg(game.title),position:"relative",
+        background:showImg?"#0A0B0F":gameBg(game.title),position:"relative",
         outline:hov?`2px solid ${accent}`:"2px solid transparent",
         transition:"outline 0.15s,transform 0.15s",
         transform:hov?"scale(1.04)":"scale(1)" }}>
+        {showImg && (
+          <img src={game.cover} alt={game.title} onError={()=>setImgErr(true)}
+            style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
+        )}
         <div style={{ position:"absolute",inset:0,
           background:"linear-gradient(to bottom,transparent 50%,#00000099 100%)" }}/>
         <div style={{ position:"absolute",bottom:5,left:5,right:5,
@@ -1030,8 +1035,21 @@ function PosterCard({ game, onGoAuth }) {
   );
 }
 
-function GameStrip({ title, ids, onGoAuth }) {
-  const games = ids.map(id=>GAME_MAP[id]).filter(Boolean);
+function HeroCoverTile({ game }) {
+  const [imgErr, setImgErr] = useState(false);
+  const showImg = game.cover && !imgErr;
+  return (
+    <div style={{ background:showImg?"#0A0B0F":gameBg(game.title),
+      borderRadius:4,overflow:"hidden",width:"100%",height:"100%" }}>
+      {showImg && (
+        <img src={game.cover} alt={game.title} onError={()=>setImgErr(true)}
+          style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
+      )}
+    </div>
+  );
+}
+
+function GameStrip({ title, games, onGoAuth }) {
   return (
     <div style={{ marginBottom:36 }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",
@@ -1054,6 +1072,54 @@ function LandingPage({ onGoAuth }) {
   const w = useWindowWidth();
   const mobile = w < 640;
   const tablet = w < 1024;
+  const [liveGames, setLiveGames] = useState(null); // null=loading, []=failed, [...]= loaded
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        // 1. Check Supabase cache first
+        const { data: cached } = await supabase
+          .from('games_cache').select('*')
+          .order('updated_at', { ascending:false }).limit(48);
+
+        if (cached?.length >= 12) {
+          const ageMs = Date.now() - new Date(cached[0].updated_at).getTime();
+          if (ageMs < 24 * 3600 * 1000) {
+            if (!cancelled) setLiveGames(cached.map(g=>({
+              id:g.id, title:g.title, cover:g.cover_url, year:g.year, genre:g.genre
+            })));
+            return;
+          }
+        }
+
+        // 2. Fetch from RAWG
+        const [p1, p2] = await Promise.all([getPopular(1), getPopular(2)]);
+        const games = [...p1, ...p2].slice(0, 48);
+        if (!cancelled) setLiveGames(games);
+
+        // 3. Update cache (fire and forget)
+        supabase.from('games_cache').upsert(
+          games.map(g=>({ id:g.id, title:g.title, cover_url:g.cover,
+            year:g.year, genre:g.genre, updated_at:new Date().toISOString() })),
+          { onConflict:'id' }
+        ).catch(()=>{});
+
+      } catch {
+        if (!cancelled) setLiveGames([]); // triggers static fallback
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Use live games if loaded, otherwise fall back to static GAMES
+  const staticFallback = GAMES.map(g=>({ id:g.id, title:g.title, cover:null, year:g.year, genre:g.genre }));
+  const displayGames = liveGames?.length > 0 ? liveGames : staticFallback;
+  const heroGames    = displayGames.slice(0, mobile ? 12 : 24);
+  const popularGames = displayGames.slice(0, 12);
+  const topGames     = displayGames.slice(12, 24);
+  const newGames     = [...displayGames].sort((a,b)=>(b.year||0)-(a.year||0)).slice(0, 12);
 
   return (
     <div style={{ background:"#0A0B0F",fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",
@@ -1105,10 +1171,7 @@ function LandingPage({ onGoAuth }) {
           gridTemplateColumns:`repeat(${mobile?6:12},1fr)`,
           gridTemplateRows:"repeat(2,1fr)",
           gap:4,padding:4 }}>
-          {HERO_IDS.slice(0, mobile?12:24).map((id,i)=>{
-            const g=GAME_MAP[id];
-            return g?(<div key={i} style={{ background:gameBg(g.title),borderRadius:4 }}/>):null;
-          })}
+          {heroGames.map((g,i)=><HeroCoverTile key={g.id||i} game={g}/>)}
         </div>
         <div style={{ position:"absolute",inset:0,
           background:mobile
@@ -1159,7 +1222,7 @@ function LandingPage({ onGoAuth }) {
 
       {/* ── GAME STRIPS ── */}
       <div style={{ padding:"28px 0 0" }}>
-        <GameStrip title="Popular on Backlog" ids={POPULAR_IDS} onGoAuth={onGoAuth}/>
+        <GameStrip title="Popular on Backlog" games={popularGames} onGoAuth={onGoAuth}/>
 
         {/* Top 250 banner */}
         <div style={{ margin:mobile?"0 16px 28px":"0 32px 36px",borderRadius:12,
@@ -1183,8 +1246,8 @@ function LandingPage({ onGoAuth }) {
               cursor:"pointer",flexShrink:0 }}>View</button>
         </div>
 
-        <GameStrip title="Top Games With the Most Fans" ids={TOPFAN_IDS} onGoAuth={onGoAuth}/>
-        <GameStrip title="New &amp; Recent Releases" ids={NEWREL_IDS} onGoAuth={onGoAuth}/>
+        <GameStrip title="Top Games With the Most Fans" games={topGames} onGoAuth={onGoAuth}/>
+        <GameStrip title="New &amp; Recent Releases" games={newGames} onGoAuth={onGoAuth}/>
       </div>
 
       {/* ── REVIEWS + SIDEBAR ── */}
