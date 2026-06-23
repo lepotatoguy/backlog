@@ -1,3 +1,7 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: #0A0B0F; -webkit-text-size-adjust: 100%; }
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -55,14 +59,9 @@ body {
 }
 
 #root {
-  width: 1126px;
+  width: 100%;
   max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
-  display: flex;
-  flex-direction: column;
   box-sizing: border-box;
 }
 

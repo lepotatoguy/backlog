@@ -250,6 +250,8 @@ function Modal({ game, ug, onClose, onSave }) {
 function Discover({ games, userGames, onOpen, q }) {
   const [genre, setGenre] = useState("All");
   const [sort, setSort] = useState("title");
+  const w = useWindowWidth();
+  const mobile = w < 640;
   const genres = useMemo(() => ["All",...new Set(games.map(g=>g.genre))], [games]);
   const filtered = useMemo(() => {
     let r = games;
@@ -262,15 +264,16 @@ function Discover({ games, userGames, onOpen, q }) {
   }, [games,q,genre,sort,userGames]);
 
   return (
-    <div style={{ padding:"22px 20px 48px" }}>
-      <div style={{ display:"flex",gap:10,marginBottom:22,flexWrap:"wrap",alignItems:"center" }}>
+    <div style={{ padding:mobile?"16px 12px 48px":"22px 20px 48px" }}>
+      <div style={{ display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center" }}>
         <div style={{ display:"flex",gap:6,flexWrap:"wrap",flex:1,minWidth:0 }}>
           {genres.map(g=>(
-            <button key={g} onClick={()=>setGenre(g)} style={{ padding:"4px 11px",
-              borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",transition:"all 0.12s",
+            <button key={g} onClick={()=>setGenre(g)} style={{ padding:"4px 10px",
+              borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
               border:`1px solid ${genre===g?"#F0A500":"#1A1E2E"}`,
               background:genre===g?"#F0A50020":"#12141C",
-              color:genre===g?"#F0A500":"#555D7A" }}>{g}</button>
+              color:genre===g?"#F0A500":"#555D7A",
+              WebkitTapHighlightColor:"transparent" }}>{g}</button>
           ))}
         </div>
         <select value={sort} onChange={e=>setSort(e.target.value)} style={{ padding:"5px 9px",
@@ -281,7 +284,9 @@ function Discover({ games, userGames, onOpen, q }) {
           <option value="rating">My rating</option>
         </select>
       </div>
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:14 }}>
+      <div style={{ display:"grid",
+        gridTemplateColumns:mobile?"repeat(auto-fill,minmax(110px,1fr))":"repeat(auto-fill,minmax(150px,1fr))",
+        gap:mobile?10:14 }}>
         {filtered.map(game=>(
           <Card key={game.id} game={game} ug={userGames[game.id]} onOpen={onOpen}/>
         ))}
@@ -299,6 +304,8 @@ function Discover({ games, userGames, onOpen, q }) {
 function MyGames({ games, userGames, onOpen }) {
   const [filter, setFilter] = useState("All");
   const filters = ["All","Playing","Played","Want to Play"];
+  const w = useWindowWidth();
+  const mobile = w < 640;
   const counts = useMemo(() => ({
     All: games.filter(g=>userGames[g.id]?.status).length,
     Playing: games.filter(g=>userGames[g.id]?.status==="Playing").length,
@@ -310,7 +317,7 @@ function MyGames({ games, userGames, onOpen }) {
     [games,userGames,filter]);
 
   if (counts.All===0) return (
-    <div style={{ padding:56,textAlign:"center" }}>
+    <div style={{ padding:"48px 24px",textAlign:"center" }}>
       <div style={{ fontSize:44,marginBottom:14 }}>📚</div>
       <div style={{ fontSize:15,color:"#7B8099",fontWeight:700,marginBottom:6 }}>Library empty</div>
       <div style={{ fontSize:13,color:"#3A4060" }}>Browse Discover and log your first game</div>
@@ -318,17 +325,20 @@ function MyGames({ games, userGames, onOpen }) {
   );
 
   return (
-    <div style={{ padding:"22px 20px 48px" }}>
-      <div style={{ display:"flex",gap:6,marginBottom:22,flexWrap:"wrap" }}>
+    <div style={{ padding:mobile?"16px 12px 80px":"22px 20px 48px" }}>
+      <div style={{ display:"flex",gap:6,marginBottom:18,flexWrap:"wrap" }}>
         {filters.map(f=>(
-          <button key={f} onClick={()=>setFilter(f)} style={{ padding:"5px 13px",
-            borderRadius:20,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all 0.12s",
+          <button key={f} onClick={()=>setFilter(f)} style={{ padding:"5px 11px",
+            borderRadius:20,fontSize:11,fontWeight:700,cursor:"pointer",
             border:`1px solid ${filter===f?"#F0A500":"#1A1E2E"}`,
             background:filter===f?"#F0A50020":"#12141C",
-            color:filter===f?"#F0A500":"#555D7A" }}>{f} ({counts[f]})</button>
+            color:filter===f?"#F0A500":"#555D7A",
+            WebkitTapHighlightColor:"transparent" }}>{f} ({counts[f]})</button>
         ))}
       </div>
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:14 }}>
+      <div style={{ display:"grid",
+        gridTemplateColumns:mobile?"repeat(auto-fill,minmax(110px,1fr))":"repeat(auto-fill,minmax(150px,1fr))",
+        gap:mobile?10:14 }}>
         {list.map(game=>(
           <Card key={game.id} game={game} ug={userGames[game.id]} onOpen={onOpen}/>
         ))}
@@ -338,6 +348,8 @@ function MyGames({ games, userGames, onOpen }) {
 }
 
 function Diary({ games, userGames, onOpen }) {
+  const w = useWindowWidth();
+  const mobile = w < 640;
   const entries = useMemo(() => {
     return games
       .filter(g => userGames[g.id]?.date)
@@ -346,7 +358,7 @@ function Diary({ games, userGames, onOpen }) {
   }, [games, userGames]);
 
   if (entries.length === 0) return (
-    <div style={{ padding:56,textAlign:"center" }}>
+    <div style={{ padding:"48px 24px",textAlign:"center" }}>
       <div style={{ fontSize:44,marginBottom:14 }}>📔</div>
       <div style={{ fontSize:15,color:"#7B8099",fontWeight:700,marginBottom:6 }}>Diary empty</div>
       <div style={{ fontSize:13,color:"#3A4060" }}>Every game you log appears here in order</div>
@@ -355,7 +367,7 @@ function Diary({ games, userGames, onOpen }) {
 
   let lastMonth = null;
   return (
-    <div style={{ padding:"22px 20px 48px",maxWidth:680,margin:"0 auto" }}>
+    <div style={{ padding:mobile?"16px 12px 80px":"22px 20px 48px",maxWidth:680,margin:"0 auto" }}>
       {entries.map(({ game, rating, review, date, status }) => {
         const d = new Date(date);
         const month = d.toLocaleDateString("en-US",{month:"long",year:"numeric"});
@@ -1257,14 +1269,12 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
   const [errors, setErrors]     = useState({});
   const [shake, setShake]       = useState(false);
   const [busy, setBusy]         = useState(false);
-  // "verify" screen shown after sign-up
   const [pendingEmail, setPendingEmail] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendMsg, setResendMsg] = useState("");
 
   const triggerShake = () => { setShake(true); setTimeout(()=>setShake(false),400); };
 
-  // Countdown timer for resend button
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown(c => c-1), 1000);
@@ -1294,118 +1304,109 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
       if (mode==="signup") {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) { setErrors({ email: error.message }); triggerShake(); return; }
-        // Create profile
         const { error: profErr } = await supabase.from("profiles").insert({
           id: data.user.id, username, bio: "", favorites: []
         });
         if (profErr) {
           setErrors({ username: profErr.message.includes("unique") ? "Username already taken" : profErr.message });
-          triggerShake();
-          await supabase.auth.signOut();
-          return;
+          triggerShake(); await supabase.auth.signOut(); return;
         }
-        // If session exists, email confirm is OFF — go straight in
-        if (data.session) {
-          onAuth(data.session, { name: username, bio: "" });
-        } else {
-          // Email confirm is ON — show verify screen
-          setPendingEmail(email);
-          setResendCooldown(60);
-        }
+        if (data.session) { onAuth(data.session, { name: username, bio: "" }); }
+        else { setPendingEmail(email); setResendCooldown(60); }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           const msg = error.message.toLowerCase();
-          if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
-            setPendingEmail(email);
-            setResendCooldown(0);
-          } else {
-            setErrors({ password: "Incorrect email or password" });
-            triggerShake();
-          }
+          if (msg.includes("email not confirmed")||msg.includes("not confirmed")) {
+            setPendingEmail(email); setResendCooldown(0);
+          } else { setErrors({ password:"Incorrect email or password" }); triggerShake(); }
           return;
         }
-        const { data: prof } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
+        const { data: prof } = await supabase.from("profiles").select("*").eq("id",data.user.id).single();
         onAuth(data.session, { name: prof?.username ?? email.split("@")[0], bio: prof?.bio ?? "" });
       }
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const handleResend = async () => {
     if (resendCooldown > 0) return;
     setBusy(true);
-    const { error } = await supabase.auth.resend({ type: "signup", email: pendingEmail });
+    const { error } = await supabase.auth.resend({ type:"signup", email:pendingEmail });
     setBusy(false);
-    if (error) {
-      setResendMsg("Could not resend. Try again later.");
-    } else {
-      setResendMsg("Email sent! Check your inbox.");
-      setResendCooldown(60);
-    }
+    if (error) setResendMsg("Could not resend. Try again later.");
+    else { setResendMsg("Email sent! Check your inbox."); setResendCooldown(60); }
   };
 
-  // ── Verify screen ───────────────────────────────────────────────
+  const wrap = {
+    minHeight:"100vh", minHeight:"100dvh",
+    background:"#0A0B0F",
+    display:"flex", flexDirection:"column",
+    alignItems:"center", justifyContent:"center",
+    padding:"24px 16px",
+    fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif",
+  };
+
+  // ── Verify screen ──────────────────────────────────────────────
   if (pendingEmail) return (
-    <div style={{ minHeight:"100vh",background:"#0A0B0F",display:"flex",flexDirection:"column",
-      alignItems:"center",justifyContent:"center",padding:24,
-      fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif" }}>
+    <div style={wrap}>
       <div style={{ width:"100%",maxWidth:400,background:"#12141C",
-        border:"1px solid #1A1E2E",borderRadius:16,padding:"40px 32px",textAlign:"center" }}>
-        <div style={{ fontSize:48,marginBottom:16 }}>📬</div>
-        <div style={{ fontSize:20,fontWeight:800,color:"#EAEBF2",marginBottom:10 }}>
-          Check your email
-        </div>
+        border:"1px solid #1A1E2E",borderRadius:16,padding:"36px 24px",textAlign:"center" }}>
+        <div style={{ fontSize:48,marginBottom:14 }}>📬</div>
+        <div style={{ fontSize:20,fontWeight:800,color:"#EAEBF2",marginBottom:10 }}>Check your email</div>
         <div style={{ fontSize:13,color:"#7B8099",lineHeight:1.65,marginBottom:24 }}>
           We sent a confirmation link to<br/>
           <strong style={{ color:"#EAEBF2" }}>{pendingEmail}</strong><br/>
-          Click the link to activate your account, then come back and sign in.
+          Click it to activate your account, then come back and sign in.
         </div>
-        {resendMsg && (
-          <div style={{ fontSize:12,color:"#4ADE80",marginBottom:14 }}>{resendMsg}</div>
-        )}
-        <button onClick={handleResend} disabled={busy || resendCooldown>0}
-          style={{ width:"100%",padding:"11px",borderRadius:8,marginBottom:14,
-            background: resendCooldown>0 ? "#1A1E2E" : "#12141C",
-            border:"1px solid #2E3450",color: resendCooldown>0 ? "#3A4060" : "#9CA3AF",
-            fontSize:13,fontWeight:600,cursor: resendCooldown>0 ? "default" : "pointer" }}>
-          {busy ? "Sending…" : resendCooldown>0 ? `Resend in ${resendCooldown}s` : "Resend confirmation email"}
+        {resendMsg && <div style={{ fontSize:12,color:"#4ADE80",marginBottom:14 }}>{resendMsg}</div>}
+        <button onClick={handleResend} disabled={busy||resendCooldown>0}
+          style={{ width:"100%",padding:"12px",borderRadius:8,marginBottom:14,
+            background:resendCooldown>0?"#1A1E2E":"#12141C",
+            border:"1px solid #2E3450",
+            color:resendCooldown>0?"#3A4060":"#9CA3AF",
+            fontSize:13,fontWeight:600,cursor:resendCooldown>0?"default":"pointer" }}>
+          {busy?"Sending…":resendCooldown>0?`Resend in ${resendCooldown}s`:"Resend confirmation email"}
         </button>
         <button onClick={()=>{ setPendingEmail(null); setMode("signin"); setResendMsg(""); }}
-          style={{ background:"none",border:"none",cursor:"pointer",
-            color:"#F0A500",fontWeight:700,fontSize:13 }}>
+          style={{ background:"none",border:"none",cursor:"pointer",color:"#F0A500",fontWeight:700,fontSize:13 }}>
           Back to sign in
         </button>
       </div>
     </div>
   );
 
-  // ── Sign in / Sign up form ──────────────────────────────────────
+  // ── Auth form ──────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh",background:"#0A0B0F",display:"flex",flexDirection:"column",
-      alignItems:"center",justifyContent:"center",padding:24,
-      fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif" }}>
+    <div style={wrap}>
       <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}`}</style>
-      <div style={{ position:"fixed",top:20,left:24 }}>
-        <button onClick={onBack} style={{ background:"none",border:"none",cursor:"pointer",
-          color:"#3A4060",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6 }}>
-          <span style={{ fontSize:16 }}>←</span> Back to home
+
+      {/* Back link — normal flow, not fixed */}
+      <div style={{ width:"100%",maxWidth:400,marginBottom:16 }}>
+        <button onClick={onBack}
+          style={{ background:"none",border:"none",cursor:"pointer",
+            color:"#555D7A",fontSize:13,fontWeight:600,
+            display:"flex",alignItems:"center",gap:6,padding:0 }}>
+          <span>←</span> Back to home
         </button>
       </div>
-      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:40 }}>
+
+      {/* Logo */}
+      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:32 }}>
         <span style={{ fontSize:24 }}>🎮</span>
         <span style={{ fontWeight:900,fontSize:20,color:"#EAEBF2",letterSpacing:"-0.03em" }}>BACKLOG</span>
       </div>
+
+      {/* Card */}
       <div style={{ width:"100%",maxWidth:400,background:"#12141C",
-        border:"1px solid #1A1E2E",borderRadius:16,padding:"36px 32px",
+        border:"1px solid #1A1E2E",borderRadius:16,padding:"28px 24px",
         animation:shake?"shake 0.4s ease":"none" }}>
-        <div style={{ fontSize:22,fontWeight:800,color:"#EAEBF2",marginBottom:4 }}>
+        <div style={{ fontSize:20,fontWeight:800,color:"#EAEBF2",marginBottom:4 }}>
           {mode==="signin"?"Welcome back":"Create your account"}
         </div>
-        <div style={{ fontSize:13,color:"#3A4060",marginBottom:28 }}>
+        <div style={{ fontSize:13,color:"#3A4060",marginBottom:24 }}>
           {mode==="signin"?"Sign in to your Backlog account":"Start tracking your games for free"}
         </div>
+
         <div onKeyDown={e=>e.key==="Enter"&&!busy&&handleSubmit()}>
           {mode==="signup"&&(
             <Field label="Username" value={username} onChange={setUsername}
@@ -1420,19 +1421,22 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
               error={errors.confirm} placeholder="••••••••"/>
           )}
         </div>
+
         <button onClick={handleSubmit} disabled={busy}
-          style={{ width:"100%",padding:"13px",borderRadius:9,
+          style={{ width:"100%",padding:"14px",borderRadius:9,
             background:busy?"#7A5200":"#F0A500",
-            color:busy?"#EAEBF255":"#000",border:"none",fontWeight:800,fontSize:14,
+            color:busy?"#EAEBF255":"#000",border:"none",fontWeight:800,fontSize:15,
             cursor:busy?"not-allowed":"pointer",marginTop:4,marginBottom:20,
-            transition:"all 0.15s" }}>
+            WebkitTapHighlightColor:"transparent" }}>
           {busy?"Please wait…":mode==="signin"?"Sign in":"Create account"}
         </button>
+
         <div style={{ textAlign:"center",fontSize:13,color:"#3A4060" }}>
           {mode==="signin"?"New to Backlog? ":"Already have an account? "}
-          <button onClick={()=>{setMode(mode==="signin"?"signup":"signin");setErrors({});}}
+          <button onClick={()=>{ setMode(mode==="signin"?"signup":"signin"); setErrors({}); }}
             style={{ background:"none",border:"none",cursor:"pointer",
-              color:"#F0A500",fontWeight:700,fontSize:13,padding:0 }}>
+              color:"#F0A500",fontWeight:700,fontSize:13,padding:0,
+              WebkitTapHighlightColor:"transparent" }}>
             {mode==="signin"?"Create an account":"Sign in"}
           </button>
         </div>
@@ -1440,7 +1444,6 @@ function AuthPage({ initialMode="signin", onAuth, onBack }) {
     </div>
   );
 }
-
 // ─── Root ──────────────────────────────────────────────────────────
 function BottomNav({ tab, setTab }) {
   const items = [
