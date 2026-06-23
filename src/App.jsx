@@ -99,9 +99,7 @@ function MiniCover({ title, size=52 }) {
 
 function Card({ game, ug, onOpen }) {
   const [hov, setHov] = useState(false);
-  const [imgErr, setImgErr] = useState(false);
   const accent = gameAccent(game.title);
-  const showImg = game.cover && !imgErr;
 
   return (
     <div onClick={() => onOpen(game)}
@@ -112,13 +110,7 @@ function Card({ game, ug, onOpen }) {
         transform:hov?"translateY(-4px)":"none",
         boxShadow:hov?"0 12px 32px #00000066":"none" }}>
       <div style={{ aspectRatio:"3/4",position:"relative",overflow:"hidden",
-        background:showImg?"#0A0B0F":gameBg(game.title) }}>
-        {showImg && (
-          <img src={game.cover} alt={game.title}
-            onError={()=>setImgErr(true)}
-            style={{ width:"100%",height:"100%",objectFit:"cover",display:"block",
-              transition:"transform 0.3s",transform:hov?"scale(1.05)":"scale(1)" }}/>
-        )}
+        background:game.cover ? `url(${game.cover}) center/cover no-repeat` : gameBg(game.title) }}>
         <div style={{ position:"absolute",inset:0,
           background:"linear-gradient(to bottom,transparent 55%,#00000099 100%)" }}/>
         {ug?.status && (
@@ -148,7 +140,6 @@ function Modal({ game, ug, onClose, onSave }) {
   const [review, setReview] = useState(ug?.review??"");
   const [saved, setSaved] = useState(false);
   const [detail, setDetail] = useState(null);
-  const [imgErr, setImgErr] = useState(false);
   const accent = gameAccent(game.title);
   const w = useWindowWidth();
   const mobile = w < 640;
@@ -159,7 +150,6 @@ function Modal({ game, ug, onClose, onSave }) {
   }, [game.id]);
 
   const g = detail || game; // use full detail when available
-  const showImg = g.cover && !imgErr;
 
   useEffect(() => {
     const fn = e => e.key==="Escape" && onClose();
@@ -178,13 +168,9 @@ function Modal({ game, ug, onClose, onSave }) {
   };
 
   const CoverPanel = () => (
-    <div style={{ background: showImg ? "#0A0B0F" : gameBg(game.title), position:"relative",
+    <div style={{ background: g.cover ? `url(${g.cover}) center/cover no-repeat` : gameBg(game.title), position:"relative",
       overflow:"hidden", flexShrink:0,
       width:mobile?56:160, height:mobile?75:undefined, minHeight:mobile?undefined:"100%" }}>
-      {showImg && (
-        <img src={g.cover} alt={g.title} onError={()=>setImgErr(true)}
-          style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
-      )}
       {!mobile && (
         <div style={{ position:"absolute",inset:0,
           background:"linear-gradient(to right,transparent 60%,#12141C 100%)" }}/>
@@ -1011,21 +997,16 @@ const SAMPLE_STORIES = [
 
 function PosterCard({ game, onGoAuth }) {
   const [hov, setHov] = useState(false);
-  const [imgErr, setImgErr] = useState(false);
   const accent = gameAccent(game.title);
-  const showImg = game.cover && !imgErr;
   return (
     <div onClick={()=>onGoAuth("signup")} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       title={game.title} style={{ width:88,flexShrink:0,cursor:"pointer" }}>
       <div style={{ width:88,height:118,borderRadius:6,overflow:"hidden",
-        background:showImg?"#0A0B0F":gameBg(game.title),position:"relative",
+        background:game.cover ? `url(${game.cover}) center/cover no-repeat, ${gameBg(game.title)}` : gameBg(game.title),
+        position:"relative",
         outline:hov?`2px solid ${accent}`:"2px solid transparent",
         transition:"outline 0.15s,transform 0.15s",
         transform:hov?"scale(1.04)":"scale(1)" }}>
-        {showImg && (
-          <img src={game.cover} alt={game.title} onError={()=>setImgErr(true)}
-            style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
-        )}
         <div style={{ position:"absolute",inset:0,
           background:"linear-gradient(to bottom,transparent 50%,#00000099 100%)" }}/>
         <div style={{ position:"absolute",bottom:5,left:5,right:5,
@@ -1036,16 +1017,9 @@ function PosterCard({ game, onGoAuth }) {
 }
 
 function HeroCoverTile({ game }) {
-  const [imgErr, setImgErr] = useState(false);
-  const showImg = game.cover && !imgErr;
   return (
-    <div style={{ background:showImg?"#0A0B0F":gameBg(game.title),
-      borderRadius:4,overflow:"hidden",width:"100%",height:"100%" }}>
-      {showImg && (
-        <img src={game.cover} alt={game.title} onError={()=>setImgErr(true)}
-          style={{ width:"100%",height:"100%",objectFit:"cover",display:"block" }}/>
-      )}
-    </div>
+    <div style={{ background:game.cover ? `url(${game.cover}) center/cover no-repeat, ${gameBg(game.title)}` : gameBg(game.title),
+      borderRadius:4,overflow:"hidden",width:"100%",height:"100%" }}/>
   );
 }
 
