@@ -122,6 +122,7 @@ function MiniCover({ title, size=52 }) {
 function Card({ game, ug, onOpen, onQuickAdd }) {
   const [hov, setHov] = useState(false);
   const [tapped, setTapped] = useState(false);
+  const [picking, setPicking] = useState(false);
   const w = useWindowWidth();
   const mobile = w < 640;
   const accent = gameAccent(game.title);
@@ -138,7 +139,7 @@ function Card({ game, ug, onOpen, onQuickAdd }) {
 
   return (
     <div onClick={handleTap}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => { setHov(false); setPicking(false); }}
       style={{ borderRadius:mobile?12:10,overflow:"hidden",cursor:"pointer",
         background:"var(--bg-secondary)",border:`1px solid ${hov||tapped?accent+"40":"var(--border)"}`,
         transition:"transform 0.18s,box-shadow 0.18s,border-color 0.18s",
@@ -161,20 +162,35 @@ function Card({ game, ug, onOpen, onQuickAdd }) {
             <Badge status={ug.status}/>
           </div>
         )}
-        {/* Quick add button */}
+        {/* Quick add button / status picker */}
         {hov && onQuickAdd && !ug?.status && !mobile && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onQuickAdd(game); }}
-            style={{
-              position:"absolute",bottom:8,right:8,zIndex:2,
-              padding:"6px 10px",borderRadius:6,
-              background:"var(--accent)",color:"#000",
-              border:"none",fontWeight:700,fontSize:10,cursor:"pointer",
-              transition:"all 0.15s",WebkitTapHighlightColor:"transparent"
-            }}
-          >
-            + Add
-          </button>
+          picking ? (
+            <div onClick={e=>e.stopPropagation()}
+              style={{ position:"absolute",bottom:8,left:8,right:8,zIndex:2,
+                display:"flex",flexDirection:"column",gap:5 }}>
+              {["Want to Play","Playing","Played"].map(s=>(
+                <button key={s}
+                  onClick={e=>{ e.stopPropagation(); onQuickAdd(game, s); setPicking(false); }}
+                  style={{ padding:"7px 10px",borderRadius:7,fontSize:11,fontWeight:700,
+                    cursor:"pointer",border:"none",textAlign:"left",
+                    background:s==="Played"?"#14532D":s==="Playing"?"#1e3a5f":"#1C1A0A",
+                    color:s==="Played"?"#4ADE80":s==="Playing"?"#60A5FA":"#F0A500",
+                    WebkitTapHighlightColor:"transparent" }}>
+                  {s==="Played"?"✓ Played":s==="Playing"?"▶ Playing":"＋ Want to Play"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setPicking(true); }}
+              style={{ position:"absolute",bottom:8,right:8,zIndex:2,
+                padding:"6px 10px",borderRadius:6,
+                background:"var(--accent)",color:"#000",
+                border:"none",fontWeight:700,fontSize:10,cursor:"pointer",
+                transition:"all 0.15s",WebkitTapHighlightColor:"transparent" }}>
+              + Add
+            </button>
+          )
         )}
         {/* Hover info overlay */}
         {hov && !mobile && (
@@ -2139,14 +2155,14 @@ export default function App() {
     await supabase.from("user_games").delete().match({ user_id: session.user.id, game_id: id });
   }, [session]);
 
-  const handleQuickAdd = useCallback(async (game) => {
+  const handleQuickAdd = useCallback(async (game, status = "Want to Play") => {
     if (!session) {
       setAuthMode("signup");
       setView("auth");
       return;
     }
     const data = {
-      status: "Want to Play",
+      status,
       rating: 0,
       review: "",
       date: new Date().toISOString(),
